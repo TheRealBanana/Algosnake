@@ -6,7 +6,7 @@ from time import time, sleep
 from random import randint
 import threading
 
-TICKRATE_MS = 500
+TICKRATE_MS = 100
 
 class RunInstance(threading.Thread):
     def __init__(self, snake, context):
@@ -73,17 +73,17 @@ class RunInstance(threading.Thread):
         preferred_moves = []
         for direction, move_infos in possible_moves.iteritems():
             if move_infos[0] is not None:
-                if move_infos[1] == 0:
-                    print "FOUND PREFERRED MOVE"
+                #Prefer objective, then fresh grid, then old grid
+                if move_infos[1] == 1:
+                    preferred_moves.append(move_infos[0])
+                elif move_infos[1] == 0:
                     preferred_moves.append(move_infos[0])
                 else:
                     move_selection.append(move_infos[0])
         #Choose a random move, prefer new boxes
         if len(preferred_moves) > 0:
-            print "PREFERRED MOVE EXEC"
             our_move = preferred_moves[randint(0, len(preferred_moves)-1)]
         else:
-            print "CRAP MOVE EXEC"
             our_move = move_selection[randint(0, len(move_selection)-1)]
         self.snake.moveSnake(our_move)
         
