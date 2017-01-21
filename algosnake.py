@@ -3,7 +3,7 @@
 ##                        ##
 ## algosnake.pyw          ##
 ##                        ##
-## revision: 001          ##
+## revision: 002          ##
 ##                        ##
 ## Kyle Claisse 2017      ##
 ############################

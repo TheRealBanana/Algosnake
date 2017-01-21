@@ -101,7 +101,7 @@ class Algosnake_MainWindow(object):
         self.num_found_indicator.setGeometry(QtCore.QRect(35, 760, 111, 36))
         self.num_found_indicator.setObjectName(_fromUtf8("num_found_indicator"))
         self.algoList = QtGui.QListWidget(self.centralwidget)
-        self.algoList.setGeometry(QtCore.QRect(470, 740, 181, 91))
+        self.algoList.setGeometry(QtCore.QRect(440, 740, 210, 91))
         self.algoList.setObjectName(_fromUtf8("listWidget"))
         self.time_label = QtGui.QLabel(self.centralwidget)
         self.time_label.setGeometry(QtCore.QRect(220, 805, 46, 13))
@@ -141,15 +141,18 @@ class Algosnake_MainWindow(object):
         self.setupAlgos()
         
     def setupAlgos(self):
-        item1 = QtGui.QListWidgetItem()
-        item1.setText(_translate("MainWindow", "Right Follow", None))
-        self.algoList.addItem(item1)
-        item2 = QtGui.QListWidgetItem()
-        item2.setText(_translate("MainWindow", "Left Follow", None))
-        self.algoList.addItem(item2)
         item3 = QtGui.QListWidgetItem()
         item3.setText(_translate("MainWindow", "Random", None))
         self.algoList.addItem(item3)
+        item3 = QtGui.QListWidgetItem()
+        item3.setText(_translate("MainWindow", "Random - Prefer Unexplored", None))
+        self.algoList.addItem(item3)
+        item1 = QtGui.QListWidgetItem()
+        item1.setText(_translate("MainWindow", "Right Follow (NOT IMPLEMENTED)", None))
+        self.algoList.addItem(item1)
+        item2 = QtGui.QListWidgetItem()
+        item2.setText(_translate("MainWindow", "Left Follow (NOT IMPLEMENTED)", None))
+        self.algoList.addItem(item2)
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow", None))

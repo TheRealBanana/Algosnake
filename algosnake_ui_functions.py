@@ -6,7 +6,7 @@ from time import time, sleep
 from random import randint
 import threading
 
-TICKRATE_MS = 100
+TICKRATE_MS = 500
 
 class RunInstance(threading.Thread):
     def __init__(self, snake, context):
@@ -15,6 +15,7 @@ class RunInstance(threading.Thread):
         self.snake = snake
         self.last_tick = time()
         self.last_clock_update = time()
+        self.clock_timer = 0
         super(RunInstance, self).__init__()
 
 
@@ -22,15 +23,28 @@ class RunInstance(threading.Thread):
         print "THREAD START!"
         while self.quitting is False:
             sleep(float(TICKRATE_MS/float(1000)))
-            print "TICK"
             #Update clock if necessary
             if time() - self.last_clock_update >= 1:
-                print "UPDATE_CLOCK_PLACEHOLDER"
                 self.last_clock_update = time()
+                self.context.updateClock()
             
             
-            #Choose your algo here:
-            self.random_move_nometric()
+            #Get current algo, default to random
+            current_algo_item = self.context.MW.algoList.currentItem()
+            try:
+                current_algo = current_algo_item.text()
+            except:
+                current_algo = ""
+            
+            if current_algo == "Random - Prefer Unexplored":
+                self.random_move_nometric_prefernew()
+            else:
+                self.random_move_nometric()
+            
+            if self.snake.found_all == True:
+                print "FOUND THEM ALL, WE'RE DONE!"
+                self.quitting = True
+                
         
         print "QUITTING...."
         
@@ -40,23 +54,50 @@ class RunInstance(threading.Thread):
         possible_moves = self.snake.getMoves()
         move_selection = []
         for direction, move_infos in possible_moves.iteritems():
-            print "%s:%s:%s" % (direction, move_infos[0], move_infos[1])
             if move_infos[0] is not None:
-                print "APPENDING MOVE...."
                 move_selection.append(move_infos[0])
         #Choose a random move
-        our_move = move_selection[randint(0, len(move_selection)-1)]
+        try:
+            our_move = move_selection[randint(0, len(move_selection)-1)]
+        except:
+            print "NO START POINT SET!"
+            self.quitting = True
+            return
+        self.snake.moveSnake(our_move)
+        
+        
+    def random_move_nometric_prefernew(self):
+        #Get our list of moves
+        possible_moves = self.snake.getMoves()
+        move_selection = []
+        preferred_moves = []
+        for direction, move_infos in possible_moves.iteritems():
+            if move_infos[0] is not None:
+                if move_infos[1] == 0:
+                    print "FOUND PREFERRED MOVE"
+                    preferred_moves.append(move_infos[0])
+                else:
+                    move_selection.append(move_infos[0])
+        #Choose a random move, prefer new boxes
+        if len(preferred_moves) > 0:
+            print "PREFERRED MOVE EXEC"
+            our_move = preferred_moves[randint(0, len(preferred_moves)-1)]
+        else:
+            print "CRAP MOVE EXEC"
+            our_move = move_selection[randint(0, len(move_selection)-1)]
         self.snake.moveSnake(our_move)
         
 
 class Snake(object):
-    def __init__(self, start_grid, grid_item_states, game_grid, grid_item_tracker):
+    def __init__(self, start_grid, grid_item_states, game_grid, grid_item_tracker, context):
         self.start_grid = start_grid
         self.current_grid = start_grid
         self.game_grid = game_grid
         self.grid_item_tracker = grid_item_tracker
         self.grid_item_states = grid_item_states
         self.collected_objectives = 0
+        self.found_all = False
+        self.context = context
     
     def getMoves(self):
         #this function returns all available moves
@@ -68,8 +109,7 @@ class Snake(object):
             if moves["up"][1] == 2:
                 print "ROADBLOCK ABOVE"
                 moves["up"] = [None, None]
-        except Exception as e:
-            print "EXCEPTED:\n%s" % e
+        except:
             moves["up"] = [None, None]
         try:
             moves["down"] = [(self.current_grid[0]+1, self.current_grid[1]), self.grid_item_tracker[(self.current_grid[0]+1, self.current_grid[1])]]
@@ -97,23 +137,29 @@ class Snake(object):
         
     
     def moveSnake(self, new_grid):
+        #Check if we found an objective
+        if self.grid_item_tracker[new_grid] == 1:
+            self.foundObjective()
+        
         #color our old grid dark grey and set its state to number 5 (past position)
         current_grid_item = self.game_grid.item(*self.current_grid)
-        current_grid_item.current_mode = 5
+        self.grid_item_tracker[self.current_grid] = 5
         current_grid_item.setBackground(self.grid_item_states[5])
+        
         #Update new grid with our position color
         new_grid_item = self.game_grid.item(*new_grid)
-        #Check if we found an objective
-        if new_grid_item.current_mode == 1:
-            self.foundObjective()
-        new_grid_item.current_mode = 4
+        self.grid_item_tracker[new_grid] = 4
         new_grid_item.setBackground(self.grid_item_states[4])
         self.current_grid = new_grid
         
+        
     
     def foundObjective(self):
+        print "FOUND OBJ!"
         self.collected_objectives += 1
-        print "UPDATE_COUNT_PLACEHOLDER"
+        self.context.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">%s/%s</span></p></body></html>" % (self.collected_objectives, self.context.total_objectives))
+        if self.collected_objectives == self.context.total_objectives:
+            self.found_all = True
         
     
 class uiFunctions(object):
@@ -125,7 +171,8 @@ class uiFunctions(object):
         self.grid_locked = False
         self.grid_size = (25, 36)
         self.start_grid = (0,0)
-        self.current_grid = None
+        self.clock_timer = 0
+        self.total_objectives = 0
         #default
         self.grid_item_states[0] = QtGui.QBrush(QtGui.QColor(255, 255, 255, 255))
         #objective
@@ -140,6 +187,13 @@ class uiFunctions(object):
         self.grid_item_states[5] = QtGui.QBrush(QtGui.QColor(85, 85, 85, 255))
     
     
+    def updateClock(self):
+        self.clock_timer += 1
+        minutes = self.clock_timer/60
+        seconds = self.clock_timer%60
+        self.MW.time_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#000000;\">%02d:%02d</span></p></body></html>" % (minutes, seconds))
+    
+    
     def resetGrid(self):
         #Loop through each grid item and set it to default
         for row in range(0, self.grid_size[0] + 1):
@@ -147,7 +201,6 @@ class uiFunctions(object):
                 default_grid_item = QtGui.QTableWidgetItem()
                 default_grid_item.setBackground(self.grid_item_states[0])
                 self.MW.game_grid.setItem(row, column, default_grid_item)
-                default_grid_item.current_mode = 0
                 self.grid_item_tracker[(row,column)] = 0
         self.start_grid = None
         #Reset time and found count to zero
@@ -155,13 +208,20 @@ class uiFunctions(object):
         self.MW.time_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#000000;\">00:00</span></p></body></html>")
         #Finally unlock the grid
         self.grid_locked = False
+        self.clock_timer = 0
+        
     
     def itemClicked(self, row, column):
         print "(%s,%s)" % (row, column)
+        if self.grid_locked == True:
+            return
         qapp = QtGui.QApplication.instance()
         keyboard_mods = qapp.queryKeyboardModifiers()
         #holding control key to set start grid
         if keyboard_mods == QtCore.Qt.ControlModifier:
+            if self.grid_item_tracker[(row,column)] == 1:
+                self.total_objectives -= 1
+                self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0/%s</span></p></body></html>" % self.total_objectives)
             #reset old start grid
             if self.start_grid is not None:
                 default_grid_item = QtGui.QTableWidgetItem()
@@ -174,39 +234,45 @@ class uiFunctions(object):
             self.grid_item_tracker[self.start_grid] = 0
             self.start_grid = (row, column)
             self.grid_item_tracker[self.start_grid] = 3
-            start_grid_item.current_mode = 3
+        elif keyboard_mods == QtCore.Qt.ShiftModifier:
+            if self.grid_item_tracker[(row,column)] == 1:
+                self.total_objectives -= 1
+                self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0/%s</span></p></body></html>" % self.total_objectives)
+            selected_grid_item = self.MW.game_grid.item(row, column)
+            self.grid_item_tracker[(row,column)] = 2
+            selected_grid_item.setBackground(self.grid_item_states[self.grid_item_tracker[(row,column)]])
         else:
-            if self.grid_locked == False:
-                #Get QTableWidgetItem
-                selected_grid_item = self.MW.game_grid.item(row, column)
-                #Set default mode if it doesn't already exist
-                if hasattr(selected_grid_item, "current_mode") is False:
-                    selected_grid_item.current_mode = 0
-                    self.grid_item_tracker[(row,column)] = 0
-                if selected_grid_item.current_mode == 3:
-                    self.start_grid = None
-                    
-                #wrap
-                if selected_grid_item.current_mode > 1:
-                    selected_grid_item.current_mode = 0
-                    self.grid_item_tracker[(row,column)] = 0
-                else:
-                    selected_grid_item.current_mode += 1
-                    self.grid_item_tracker[(row,column)] += 1
-                #set mode
-                selected_grid_item.setBackground(self.grid_item_states[self.grid_item_tracker[(row,column)]])
+            #Get QTableWidgetItem
+            selected_grid_item = self.MW.game_grid.item(row, column)
+            if self.grid_item_tracker[(row,column)] == 3:
+                self.start_grid = None
                 
+            #wrap
+            if self.grid_item_tracker[(row,column)] >= 1:
+                if self.grid_item_tracker[(row,column)] == 1:
+                    self.total_objectives -= 1
+                self.grid_item_tracker[(row,column)] = 0
+                
+            else:
+                self.grid_item_tracker[(row,column)] = 1
+                self.total_objectives += 1
+            #set mode
+            selected_grid_item.setBackground(self.grid_item_states[self.grid_item_tracker[(row,column)]])
+            #update obj count if changed
+            self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0/%s</span></p></body></html>" % self.total_objectives)
     
     def startButtonPressed(self):
-        print "HERE 3"
-        snake_instance = Snake(self.start_grid, self.grid_item_states, self.MW.game_grid, self.grid_item_tracker)
+        print "START_GRID: %s" % repr(self.start_grid)
+        snake_instance = Snake(self.start_grid, self.grid_item_states, self.MW.game_grid, self.grid_item_tracker, self)
         self.game_instance_thread = RunInstance(snake_instance, self)
         self.game_instance_thread.start()
+        self.grid_locked = True
         #Lets use a plain old threading.Thread object to handle the snake movement
     
     def stopbuttonPressed(self):
-        print "HERE 4"
         self.game_instance_thread.quitting = True
         self.game_instance_thread.join()
-        print "GAME JOINED"
+        self.start_grid = self.game_instance_thread.snake.current_grid
+        self.grid_item_tracker[self.game_instance_thread.snake.current_grid] = 3
+        print "ROUND STOPPED"
     
