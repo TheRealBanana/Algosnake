@@ -6,11 +6,11 @@ As I was playing an open-world game the other night I wondered how efficient dif
 
 Block colors:
 
-White = Normal unexplored block
-Grey = Explored block
-Blue = Objective block
-Red = Roadblock block
-Green = Start point/Current position.
+White = Normal unexplored block  
+Grey = Explored block  
+Blue = Objective block  
+Red = Roadblock block  
+Green = Start point/Current position.  
 
 
 
