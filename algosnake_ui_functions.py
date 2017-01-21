@@ -75,7 +75,9 @@ class RunInstance(threading.Thread):
             if move_infos[0] is not None:
                 #Prefer objective, then fresh grid, then old grid
                 if move_infos[1] == 1:
-                    preferred_moves.append(move_infos[0])
+                    #If we find an objective, break out of the move seek and set the preferred moves to just the objective's grid
+                    preferred_moves = [move_infos[0]]
+                    break
                 elif move_infos[1] == 0:
                     preferred_moves.append(move_infos[0])
                 else:
