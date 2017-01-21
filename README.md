@@ -15,4 +15,4 @@ Green = Start point/Current position.
 
 
 Screenshot of a random seek
-![Screenshot](i.imgur.com/hX7sBSS.jpg)
+![Screenshot](https://i.imgur.com/hX7sBSS.jpg)
