@@ -12,6 +12,9 @@ Blue = Objective block
 Red = Roadblock block  
 Green = Start point/Current position.  
 
+Normal click = Set/Unset objective
+Shift click = Set roadblock
+Control click = Set start point
 
 
 Screenshot of a random seek
