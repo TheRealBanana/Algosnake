@@ -153,8 +153,8 @@
    <widget class="QFrame" name="button_box">
     <property name="geometry">
      <rect>
-      <x>770</x>
-      <y>752</y>
+      <x>785</x>
+      <y>782</y>
       <width>221</width>
       <height>46</height>
      </rect>
@@ -187,6 +187,9 @@
      </item>
      <item>
       <widget class="QPushButton" name="stop_button">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="text">
         <string>Stop</string>
        </property>
@@ -201,21 +204,27 @@
      </item>
     </layout>
    </widget>
-   <widget class="QSpinBox" name="spinBox">
+   <widget class="QSpinBox" name="speed_selector">
     <property name="geometry">
      <rect>
-      <x>715</x>
-      <y>765</y>
+      <x>730</x>
+      <y>795</y>
       <width>42</width>
       <height>22</height>
      </rect>
+    </property>
+    <property name="minimum">
+     <number>1</number>
+    </property>
+    <property name="maximum">
+     <number>10</number>
     </property>
    </widget>
    <widget class="QLabel" name="speed_label">
     <property name="geometry">
      <rect>
-      <x>670</x>
-      <y>770</y>
+      <x>685</x>
+      <y>800</y>
       <width>41</width>
       <height>16</height>
      </rect>
@@ -224,14 +233,14 @@
      <string>Speed:</string>
     </property>
     <property name="buddy">
-     <cstring>spinBox</cstring>
+     <cstring>speed_selector</cstring>
     </property>
    </widget>
    <widget class="QLabel" name="num_found_label">
     <property name="geometry">
      <rect>
       <x>75</x>
-      <y>805</y>
+      <y>823</y>
       <width>46</width>
       <height>13</height>
      </rect>
@@ -244,7 +253,7 @@
     <property name="geometry">
      <rect>
       <x>35</x>
-      <y>796</y>
+      <y>814</y>
       <width>106</width>
       <height>10</height>
      </rect>
@@ -263,7 +272,7 @@
     <property name="geometry">
      <rect>
       <x>35</x>
-      <y>760</y>
+      <y>778</y>
       <width>111</width>
       <height>36</height>
      </rect>
@@ -272,13 +281,13 @@
      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:16pt; font-weight:600; color:#ff0000;&quot;&gt;_NUM_FOUND_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
-   <widget class="QListWidget" name="listWidget">
+   <widget class="QListWidget" name="algoList">
     <property name="geometry">
      <rect>
-      <x>470</x>
+      <x>435</x>
       <y>740</y>
-      <width>181</width>
-      <height>91</height>
+      <width>216</width>
+      <height>126</height>
      </rect>
     </property>
     <item>
@@ -295,8 +304,8 @@
    <widget class="QLabel" name="time_label">
     <property name="geometry">
      <rect>
-      <x>220</x>
-      <y>805</y>
+      <x>211</x>
+      <y>824</y>
       <width>46</width>
       <height>13</height>
      </rect>
@@ -308,8 +317,8 @@
    <widget class="QFrame" name="time_separator">
     <property name="geometry">
      <rect>
-      <x>180</x>
-      <y>796</y>
+      <x>171</x>
+      <y>815</y>
       <width>106</width>
       <height>10</height>
      </rect>
@@ -327,8 +336,8 @@
    <widget class="QLabel" name="time_indicator">
     <property name="geometry">
      <rect>
-      <x>175</x>
-      <y>760</y>
+      <x>166</x>
+      <y>779</y>
       <width>116</width>
       <height>36</height>
      </rect>
@@ -337,18 +346,52 @@
      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:16pt; font-weight:600; color:#000000;&quot;&gt;_TIME_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
+   <widget class="QLabel" name="moves_label">
+    <property name="geometry">
+     <rect>
+      <x>344</x>
+      <y>824</y>
+      <width>46</width>
+      <height>13</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>MOVES</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="moves_indicator">
+    <property name="geometry">
+     <rect>
+      <x>301</x>
+      <y>779</y>
+      <width>116</width>
+      <height>36</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:16pt; font-weight:600; color:#000000;&quot;&gt;_MOVES_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
+   </widget>
+   <widget class="QFrame" name="moves_separator">
+    <property name="geometry">
+     <rect>
+      <x>306</x>
+      <y>815</y>
+      <width>106</width>
+      <height>10</height>
+     </rect>
+    </property>
+    <property name="frameShape">
+     <enum>QFrame::HLine</enum>
+    </property>
+    <property name="frameShadow">
+     <enum>QFrame::Raised</enum>
+    </property>
+    <property name="lineWidth">
+     <number>2</number>
+    </property>
+   </widget>
   </widget>
-  <widget class="QMenuBar" name="menubar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>1042</width>
-     <height>21</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QStatusBar" name="statusbar"/>
  </widget>
  <resources/>
  <connections>

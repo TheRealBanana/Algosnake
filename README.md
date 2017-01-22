@@ -18,4 +18,4 @@ Control click = Set start point
 
 
 Screenshot of a random seek
-![Screenshot](https://i.imgur.com/aGxBkiU.png)
+![Screenshot](https://i.imgur.com/JuzvP6j.png)
