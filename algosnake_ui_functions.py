@@ -6,6 +6,8 @@ from time import time, sleep
 from random import randint
 from PyQt4.QtCore import SIGNAL
 import threading
+import cPickle
+import os
 
 #Default tick rate of once per second
 TICKRATE_MS = 1000
@@ -18,6 +20,11 @@ class RunInstance(threading.Thread):
         self.last_tick = time()
         self.last_clock_update = time()
         self.clock_timer = 0
+        # Memory algo vars
+        self.past_moves = None
+        self.backtracking = False
+        
+        
         super(RunInstance, self).__init__()
 
 
@@ -25,7 +32,7 @@ class RunInstance(threading.Thread):
         while self.quitting is False:
             if self.context.start_grid == None:
                 print "NO START POINT SET!"
-                #Check if we have a fresh grid, if so reset everything
+                #unlock grid to allow setting of start
                 self.context.grid_locked = False
                 self.context.MW.start_button.setEnabled(True)
                 self.context.MW.stop_button.setEnabled(False)
@@ -47,6 +54,8 @@ class RunInstance(threading.Thread):
             
             if current_algo == "Random - Prefer Unexplored":
                 self.random_move_nometric_prefernew()
+            elif current_algo == "Backtrack with memory - straight until obstructed":
+                self.backtrack_with_memory()
             else:
                 self.random_move_nometric()
             
@@ -91,6 +100,54 @@ class RunInstance(threading.Thread):
             our_move = move_selection[randint(0, len(move_selection)-1)]
         self.snake.moveSnake(our_move)
         
+    def backtrack_with_memory(self):
+        #First move?
+        if self.past_moves is None:
+            self.past_moves = []
+            self.backtracking = False
+            self.snake.direction = "START"
+        
+        possible_moves = self.snake.getMoves()
+        #For this one we want to concentrate on only the blue and white blocks, avoiding any block we've visited previously unless absolutely necessary (backtracking)
+        white_blocks = {}
+        blue_blocks = []
+        for direction, move in possible_moves.iteritems():
+            if move[0] is not None:
+                if move[1] == 0:
+                    white_blocks[direction] = move
+                if move[1] == 1:
+                    blue_blocks.append([move, direction])
+        #No more good moves, backtrack one move
+        if len(white_blocks) == 0 and len(blue_blocks) == 0:
+            self.backtracking = True
+            move_direction = "BT"
+            our_move = self.past_moves.pop(-1)
+            print "BACKTRACKING..."
+            
+        #Blue moves first, then white.
+        elif len(blue_blocks) > 0:
+            self.backtracking = False
+            our_move = blue_blocks.pop(0) #Take the first one
+            move_direction = our_move[1]
+            our_move = our_move[0][0]
+        elif len(white_blocks) > 0:
+            self.backtracking = False
+            #Pick first choice given to us if its the start or we can't continue on in the same direction as before
+            if self.snake.direction == "START" or white_blocks.has_key(self.snake.direction) is False:
+                move_direction = white_blocks.keys()[0]
+                our_move = white_blocks[move_direction][0]
+            else:
+                our_move = white_blocks[self.snake.direction][0]
+                move_direction = self.snake.direction
+            del(white_blocks[move_direction])
+        
+        #Make our move and update our direction of travel
+        if self.backtracking == False:
+            self.past_moves.append(self.snake.current_grid)
+        
+        self.snake.direction = move_direction
+        self.snake.moveSnake(our_move)
+            
 
 class Snake(object):
     def __init__(self, start_grid, grid_item_states, game_grid, grid_item_tracker, context):
@@ -102,6 +159,7 @@ class Snake(object):
         self.collected_objectives = 0
         self.found_all = False
         self.context = context
+        self.direction = "NOTUSED"
     
     def getMoves(self):
         #this function returns all available moves
@@ -178,7 +236,6 @@ class uiFunctions(object):
         self.clock_timer = 0
         self.total_objectives = 0
         self.total_moves = 0
-        self.fresh_grid = True
         #default
         self.grid_item_states[0] = QtGui.QBrush(QtGui.QColor(255, 255, 255, 255))
         #objective
@@ -208,7 +265,7 @@ class uiFunctions(object):
     def resetGrid(self):
         #Stop any current run
         try:
-            self.stopbuttonPressed()
+            self.stopButtonPressed()
         except:
             pass
         #Loop through each grid item and set it to default
@@ -223,11 +280,11 @@ class uiFunctions(object):
         self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0</span></p></body></html>")
         self.MW.time_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#000000;\">00:00</span></p></body></html>")
         self.MW.moves_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#000000;\">0</span></p></body></html>")
-        #Freshen up the grid
-        self.fresh_grid = True
+        self.clock_timer = 0
+        self.total_objectives = 0
+        self.total_moves = 0
         #Finally unlock the grid
         self.grid_locked = False
-        self.clock_timer = 0
         
     
     
@@ -263,13 +320,9 @@ class uiFunctions(object):
         new_start_grid_item.setBackground(self.grid_item_states[new_mode])
     
     
-    #This whole function needs to be cleaned up and its only 3 days old, fml smh. 
     def itemClicked(self, row, column):
         if self.grid_locked == True:
             return
-        
-        #Not a fresh grid
-        self.fresh_grid = False
         
         qapp = QtGui.QApplication.instance()
         keyboard_mods = qapp.queryKeyboardModifiers()
@@ -288,12 +341,7 @@ class uiFunctions(object):
                 self.setGridItem((row, column), 1)
     
     def startButtonPressed(self):
-        global TICKRATE_MS
-        #Figure out speed
-        #                High speeds 11-20             Low speeds 1-10
-        speeds = [x for x in range(10, 110, 10)] + [x for x in range(100, 1100, 100)]
-        speeds.reverse()
-        TICKRATE_MS = speeds[self.MW.speed_selector.value()-1]
+        self.updateSpeed()
         
         snake_instance = Snake(self.start_grid, self.grid_item_states, self.MW.game_grid, self.grid_item_tracker, self)
         self.game_instance_thread = RunInstance(snake_instance, self)
@@ -302,12 +350,88 @@ class uiFunctions(object):
         self.MW.start_button.setEnabled(False)
         self.MW.stop_button.setEnabled(True)
     
-    def stopbuttonPressed(self):
+    def stopButtonPressed(self):
         self.game_instance_thread.quitting = True
         self.game_instance_thread.join()
         self.start_grid = self.game_instance_thread.snake.current_grid
         self.grid_item_tracker[self.game_instance_thread.snake.current_grid] = 3
         self.MW.start_button.setEnabled(True)
         self.MW.stop_button.setEnabled(False)
+        self.grid_locked = False
         print "ROUND STOPPED"
     
+    
+    def stopAndQuit(self):
+        try:
+            self.stopButtonPressed()
+        except:
+            pass
+        self.MW.MainWindow.close()
+    
+    def updateSpeed(self):
+        global TICKRATE_MS
+        #Figure out speed
+        #                High speeds 11-20             Low speeds 1-10
+        speeds = [x for x in range(10, 110, 10)] + [x for x in range(100, 1100, 100)]
+        speeds.reverse()
+        TICKRATE_MS = speeds[self.MW.speed_selector.value()-1]
+        
+    
+    def fileDialogMaster(self, main_mode, file_mode, dialog_caption, filters="Algosnake Grid (*.gridstate)"):
+        start_dir = os.getcwd()
+        print start_dir
+        fileDialog = QtGui.QFileDialog()
+        fileDialog.AcceptMode = main_mode
+        fileDialog.setDirectory(start_dir)
+        fileDialog.setFileMode(file_mode)
+        if main_mode == QtGui.QFileDialog.AcceptOpen:
+            chosenFile = fileDialog.getOpenFileName(caption=dialog_caption, filter=filters)
+        else:
+            chosenFile = fileDialog.getSaveFileName(caption=dialog_caption, filter=filters)
+        
+        return chosenFile
+    
+    
+    #We're not doing any checking, just save and load. We pickle the data just to add some basic level of data integrity checking.
+    def saveGrid(self):
+        savefilepath = self.fileDialogMaster(QtGui.QFileDialog.AcceptSave, QtGui.QFileDialog.AnyFile, "Save Current Grid...")
+        
+        if len(savefilepath) > 0:
+            savedata = [self.grid_item_tracker, self.start_grid]
+            savedata = cPickle.dumps(savedata)
+            
+            with open(savefilepath, "w") as savefile:
+                savefile.write(savedata)
+        
+    
+    def loadGrid(self):
+        #Stop if currently running
+        try:
+            self.stopButtonPressed()
+        except:
+            pass
+        
+        loadfilepath = self.fileDialogMaster(QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, "Load Saved Grid...")
+        
+        if len(loadfilepath) > 0:
+            with open(loadfilepath, "r") as loadedfile:
+                loadeddata = loadedfile.read()
+            try:
+                griddata = cPickle.loads(loadeddata)
+            except:
+                print "Invalid grid file!"
+                return
+        else:
+            return
+        #reset current grid before loading new one
+        self.resetGrid()
+        
+        
+        self.start_grid = griddata[1]
+        self.grid_item_tracker = griddata[0]
+        
+        #Set up the grid and count objectives
+        for grid, mode in self.grid_item_tracker.iteritems():
+            if mode == 1:
+                self.total_objectives += 1
+            self.setGridItem(grid, mode)

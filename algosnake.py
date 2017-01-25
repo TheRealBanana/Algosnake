@@ -9,13 +9,21 @@
 ############################
 
 import sys
-import re
 from algosnake_ui import *
 from PyQt4 import QtGui
 
+#This is required to override the closeEvent
+class SnakeMainWindow(QtGui.QMainWindow):
+    def closeEvent(self, event):
+        #We first emit the closing signal, then we actually close
+        self.emit(QtCore.SIGNAL("appClosing"))
+        super(SnakeMainWindow, self).closeEvent(event)
+
+
+
 def main():
     app = QtGui.QApplication(sys.argv)
-    MainWindow = QtGui.QMainWindow()
+    MainWindow = SnakeMainWindow()
     ui = Algosnake_MainWindow()
     ui.setupUi(MainWindow)
     MainWindow.ui = ui

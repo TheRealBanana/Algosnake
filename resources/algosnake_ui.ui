@@ -7,8 +7,20 @@
     <x>0</x>
     <y>0</y>
     <width>1042</width>
-    <height>878</height>
+    <height>897</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>1042</width>
+    <height>897</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>1042</width>
+    <height>897</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
@@ -18,7 +30,7 @@
     <property name="geometry">
      <rect>
       <x>25</x>
-      <y>25</y>
+      <y>15</y>
       <width>991</width>
       <height>706</height>
      </rect>
@@ -217,7 +229,7 @@
      <number>1</number>
     </property>
     <property name="maximum">
-     <number>10</number>
+     <number>20</number>
     </property>
    </widget>
    <widget class="QLabel" name="speed_label">
@@ -285,21 +297,11 @@
     <property name="geometry">
      <rect>
       <x>435</x>
-      <y>740</y>
-      <width>216</width>
+      <y>735</y>
+      <width>236</width>
       <height>126</height>
      </rect>
     </property>
-    <item>
-     <property name="text">
-      <string>Right Follow</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>Left Follow</string>
-     </property>
-    </item>
    </widget>
    <widget class="QLabel" name="time_label">
     <property name="geometry">
@@ -392,6 +394,41 @@
     </property>
    </widget>
   </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1042</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>&amp;File</string>
+    </property>
+    <addaction name="action_Open"/>
+    <addaction name="action_Save"/>
+    <addaction name="separator"/>
+    <addaction name="action_Quit"/>
+   </widget>
+   <addaction name="menuFile"/>
+  </widget>
+  <action name="action_Open">
+   <property name="text">
+    <string>&amp;Load Grid...</string>
+   </property>
+  </action>
+  <action name="action_Save">
+   <property name="text">
+    <string>&amp;Save Grid As...</string>
+   </property>
+  </action>
+  <action name="action_Quit">
+   <property name="text">
+    <string>&amp;Quit</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections>
@@ -418,8 +455,8 @@
    <slot>close()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>804</x>
-     <y>798</y>
+     <x>814</x>
+     <y>830</y>
     </hint>
     <hint type="destinationlabel">
      <x>798</x>
@@ -434,8 +471,8 @@
    <slot>close()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>877</x>
-     <y>800</y>
+     <x>926</x>
+     <y>832</y>
     </hint>
     <hint type="destinationlabel">
      <x>884</x>
@@ -450,12 +487,60 @@
    <slot>close()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>957</x>
-     <y>795</y>
+     <x>995</x>
+     <y>827</y>
     </hint>
     <hint type="destinationlabel">
      <x>997</x>
      <y>841</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>action_Open</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>520</x>
+     <y>448</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>action_Save</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>520</x>
+     <y>448</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>action_Quit</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>520</x>
+     <y>448</y>
     </hint>
    </hints>
   </connection>
