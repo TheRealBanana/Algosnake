@@ -23,7 +23,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Algosnake</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QFrame" name="game_grid_frame">
@@ -165,10 +165,10 @@
    <widget class="QFrame" name="button_box">
     <property name="geometry">
      <rect>
-      <x>785</x>
-      <y>782</y>
-      <width>221</width>
-      <height>46</height>
+      <x>795</x>
+      <y>760</y>
+      <width>216</width>
+      <height>86</height>
      </rect>
     </property>
     <property name="sizePolicy">
@@ -189,28 +189,35 @@
     <property name="frameShadow">
      <enum>QFrame::Raised</enum>
     </property>
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <item>
+    <layout class="QGridLayout" name="gridLayout_2">
+     <item row="3" column="0">
+      <widget class="QPushButton" name="reset_button">
+       <property name="text">
+        <string>Reset</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <widget class="QPushButton" name="clear_button">
+       <property name="text">
+        <string>Clear Grid</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="0">
       <widget class="QPushButton" name="start_button">
        <property name="text">
         <string>Start</string>
        </property>
       </widget>
      </item>
-     <item>
+     <item row="2" column="1">
       <widget class="QPushButton" name="stop_button">
        <property name="enabled">
         <bool>false</bool>
        </property>
        <property name="text">
         <string>Stop</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="reset_button">
-       <property name="text">
-        <string>Reset</string>
        </property>
       </widget>
      </item>
@@ -229,7 +236,10 @@
      <number>1</number>
     </property>
     <property name="maximum">
-     <number>20</number>
+     <number>30</number>
+    </property>
+    <property name="value">
+     <number>10</number>
     </property>
    </widget>
    <widget class="QLabel" name="speed_label">
@@ -455,8 +465,8 @@
    <slot>close()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>814</x>
-     <y>830</y>
+     <x>824</x>
+     <y>811</y>
     </hint>
     <hint type="destinationlabel">
      <x>798</x>
@@ -471,8 +481,8 @@
    <slot>close()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>926</x>
-     <y>832</y>
+     <x>968</x>
+     <y>813</y>
     </hint>
     <hint type="destinationlabel">
      <x>884</x>
@@ -481,14 +491,14 @@
    </hints>
   </connection>
   <connection>
-   <sender>reset_button</sender>
+   <sender>clear_button</sender>
    <signal>clicked()</signal>
    <receiver>MainWindow</receiver>
    <slot>close()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>995</x>
-     <y>827</y>
+     <x>968</x>
+     <y>841</y>
     </hint>
     <hint type="destinationlabel">
      <x>997</x>
@@ -541,6 +551,22 @@
     <hint type="destinationlabel">
      <x>520</x>
      <y>448</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>reset_button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>831</x>
+     <y>843</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>766</x>
+     <y>795</y>
     </hint>
    </hints>
   </connection>

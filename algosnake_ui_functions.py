@@ -5,6 +5,7 @@ from PyQt4 import QtGui, QtCore
 from time import time, sleep
 from random import randint
 from PyQt4.QtCore import SIGNAL
+from copy import deepcopy as DC
 import threading
 import cPickle
 import os
@@ -106,6 +107,7 @@ class RunInstance(threading.Thread):
             self.past_moves = []
             self.backtracking = False
             self.snake.direction = "START"
+            print "[0] SEEKING [0]..."
         
         possible_moves = self.snake.getMoves()
         #For this one we want to concentrate on only the blue and white blocks, avoiding any block we've visited previously unless absolutely necessary (backtracking)
@@ -119,18 +121,24 @@ class RunInstance(threading.Thread):
                     blue_blocks.append([move, direction])
         #No more good moves, backtrack one move
         if len(white_blocks) == 0 and len(blue_blocks) == 0:
+            if self.backtracking is False:
+                print "[Move %s] BACKTRACKING [%s]..." % (self.context.total_moves, len(self.past_moves))
             self.backtracking = True
             move_direction = "BT"
             our_move = self.past_moves.pop(-1)
-            print "BACKTRACKING..."
+            
             
         #Blue moves first, then white.
         elif len(blue_blocks) > 0:
+            if self.backtracking is True:
+                print "[Move %s] SEEKING [%s]..." % (self.context.total_moves, len(self.past_moves))
             self.backtracking = False
             our_move = blue_blocks.pop(0) #Take the first one
             move_direction = our_move[1]
             our_move = our_move[0][0]
         elif len(white_blocks) > 0:
+            if self.backtracking is True:
+                print "[Move %s] SEEKING [%s]..." % (self.context.total_moves, len(self.past_moves))
             self.backtracking = False
             #Pick first choice given to us if its the start or we can't continue on in the same direction as before
             if self.snake.direction == "START" or white_blocks.has_key(self.snake.direction) is False:
@@ -217,7 +225,7 @@ class Snake(object):
         
     
     def foundObjective(self):
-        print "FOUND OBJ!"
+        print "[Move %s] FOUND OBJ!" % self.context.total_moves
         self.collected_objectives += 1
         self.context.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">%s/%s</span></p></body></html>" % (self.collected_objectives, self.context.total_objectives))
         if self.collected_objectives == self.context.total_objectives:
@@ -236,6 +244,7 @@ class uiFunctions(object):
         self.clock_timer = 0
         self.total_objectives = 0
         self.total_moves = 0
+        self.loadstate = None
         #default
         self.grid_item_states[0] = QtGui.QBrush(QtGui.QColor(255, 255, 255, 255))
         #objective
@@ -277,12 +286,13 @@ class uiFunctions(object):
                 self.grid_item_tracker[(row,column)] = 0
         self.start_grid = None
         #Reset time, found, and moves count to zero
-        self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0</span></p></body></html>")
+        self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0/0</span></p></body></html>")
         self.MW.time_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#000000;\">00:00</span></p></body></html>")
         self.MW.moves_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#000000;\">0</span></p></body></html>")
         self.clock_timer = 0
         self.total_objectives = 0
         self.total_moves = 0
+        self.loadstate = None
         #Finally unlock the grid
         self.grid_locked = False
         
@@ -304,7 +314,7 @@ class uiFunctions(object):
         if new_mode == 1:
             self.total_objectives += 1
             self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0/%s</span></p></body></html>" % self.total_objectives)
-        
+            
         #Setting new start position
         elif new_mode == 3:
             #reset old start grid if necessary
@@ -323,6 +333,8 @@ class uiFunctions(object):
     def itemClicked(self, row, column):
         if self.grid_locked == True:
             return
+        
+        self.loadstate = None
         
         qapp = QtGui.QApplication.instance()
         keyboard_mods = qapp.queryKeyboardModifiers()
@@ -349,6 +361,9 @@ class uiFunctions(object):
         self.grid_locked = True
         self.MW.start_button.setEnabled(False)
         self.MW.stop_button.setEnabled(True)
+        
+        if self.loadstate is None:
+            self.setLoadState()
     
     def stopButtonPressed(self):
         self.game_instance_thread.quitting = True
@@ -361,6 +376,11 @@ class uiFunctions(object):
         print "ROUND STOPPED"
     
     
+    def setLoadState(self):
+        self.loadstate = {}
+        self.loadstate["start_grid"] = self.start_grid
+        self.loadstate["game_item_tracker"] = DC(self.grid_item_tracker)
+    
     def stopAndQuit(self):
         try:
             self.stopButtonPressed()
@@ -371,8 +391,8 @@ class uiFunctions(object):
     def updateSpeed(self):
         global TICKRATE_MS
         #Figure out speed
-        #                High speeds 11-20             Low speeds 1-10
-        speeds = [x for x in range(10, 110, 10)] + [x for x in range(100, 1100, 100)]
+        #            Super high speeds 20-30              High speeds 11-20                  Low speeds 1-10
+        speeds = [x for x in range(1, 11, 1)] + [x for x in range(10, 110, 10)] + [x for x in range(100, 1100, 100)]
         speeds.reverse()
         TICKRATE_MS = speeds[self.MW.speed_selector.value()-1]
         
@@ -403,7 +423,30 @@ class uiFunctions(object):
             with open(savefilepath, "w") as savefile:
                 savefile.write(savedata)
         
+        self.setLoadState()
     
+    def reloadGrid(self):
+        try:
+            self.stopButtonPressed()
+        except:
+            pass
+        
+        if self.loadstate is None:
+            return
+        #make a copy of the loadstate and then reset everything
+        loadstate = DC(self.loadstate)
+        self.resetGrid()
+        self.start_grid = loadstate["start_grid"]
+        self.total_objectives = 0
+        #Load the grid
+        for grid, mode in loadstate["game_item_tracker"].iteritems():
+            #change any explored boxes to unexplored
+            if mode == 5:
+                mode = 0
+            self.setGridItem(grid, mode)
+        
+        self.setLoadState()
+            
     def loadGrid(self):
         #Stop if currently running
         try:
@@ -431,7 +474,10 @@ class uiFunctions(object):
         self.grid_item_tracker = griddata[0]
         
         #Set up the grid and count objectives
+        self.total_objectives = 0
         for grid, mode in self.grid_item_tracker.iteritems():
             if mode == 1:
                 self.total_objectives += 1
             self.setGridItem(grid, mode)
+        
+        self.setLoadState()
