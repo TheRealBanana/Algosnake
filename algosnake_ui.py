@@ -89,7 +89,7 @@ class Algosnake_MainWindow(object):
         self.speed_selector = QtGui.QSpinBox(self.centralwidget)
         self.speed_selector.setGeometry(QtCore.QRect(730, 795, 42, 22))
         self.speed_selector.setMinimum(1)
-        self.speed_selector.setMaximum(30)
+        self.speed_selector.setMaximum(28)
         self.speed_selector.setProperty("value", 10)
         self.speed_selector.setObjectName(_fromUtf8("speed_selector"))
         self.speed_label = QtGui.QLabel(self.centralwidget)
@@ -178,22 +178,19 @@ class Algosnake_MainWindow(object):
         #Set up algo list
         self.setupAlgos()
         
+    def addAlgo(self, text):
+        new_item = QtGui.QListWidgetItem()
+        new_item.setText(_translate("MainWindow", text, None))
+        self.algoList.addItem(new_item)
+    
     def setupAlgos(self):
-        item3 = QtGui.QListWidgetItem()
-        item3.setText(_translate("MainWindow", "Random", None))
-        self.algoList.addItem(item3)
-        item3 = QtGui.QListWidgetItem()
-        item3.setText(_translate("MainWindow", "Random - Prefer Unexplored", None))
-        self.algoList.addItem(item3)
-        item4 = QtGui.QListWidgetItem()
-        item4.setText(_translate("MainWindow", "Backtrack with memory - straight until obstructed", None))
-        self.algoList.addItem(item4)
-        #item1 = QtGui.QListWidgetItem()
-        #item1.setText(_translate("MainWindow", "Right Follow (NOT IMPLEMENTED)", None))
-        #self.algoList.addItem(item1)
-        #item2 = QtGui.QListWidgetItem()
-        #item2.setText(_translate("MainWindow", "Left Follow (NOT IMPLEMENTED)", None))
-        #self.algoList.addItem(item2)
+        self.addAlgo("Random")
+        self.addAlgo("Random - Prefer Unexplored")
+        self.addAlgo("Backtrack with memory - straight until obstructed")
+        self.addAlgo("Backtracker - Shortcutter")
+        #self.addAlgo("Backtracker - Shortcutter - Prefer largest cut")
+        #self.addAlgo("Backtracker - Shortcutter w/ Metric")
+        
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(_translate("MainWindow", "Algosnake", None))

@@ -6,6 +6,8 @@ from time import time, sleep
 from random import randint
 from PyQt4.QtCore import SIGNAL
 from copy import deepcopy as DC
+from collections import OrderedDict as OD
+from math import sqrt
 import threading
 import cPickle
 import os
@@ -23,6 +25,7 @@ class RunInstance(threading.Thread):
         self.clock_timer = 0
         # Memory algo vars
         self.past_moves = None
+        self.decision_points = None
         self.backtracking = False
         
         
@@ -56,7 +59,13 @@ class RunInstance(threading.Thread):
             if current_algo == "Random - Prefer Unexplored":
                 self.random_move_nometric_prefernew()
             elif current_algo == "Backtrack with memory - straight until obstructed":
-                self.backtrack_with_memory()
+                self.backtracker()
+            elif current_algo == "Backtracker - Shortcutter":
+                self.backtracker_shortcuter()
+            #elif current_algo == "Backtracker - Shortcutter - Prefer largest cut":
+            #    self.backtracker_shortcuter(mode="distance")
+            #elif current_algo == "Backtracker - Shortcutter w/ Metric":
+            #    self.backtracker_shortcuter(mode="metric")
             else:
                 self.random_move_nometric()
             
@@ -101,7 +110,7 @@ class RunInstance(threading.Thread):
             our_move = move_selection[randint(0, len(move_selection)-1)]
         self.snake.moveSnake(our_move)
         
-    def backtrack_with_memory(self):
+    def backtracker(self):
         #First move?
         if self.past_moves is None:
             self.past_moves = []
@@ -155,7 +164,131 @@ class RunInstance(threading.Thread):
         
         self.snake.direction = move_direction
         self.snake.moveSnake(our_move)
+        
+    def backtracker_shortcuter(self, mode="first"):
+        #Modes:
+        #First - Takes first available shortcut (Default)
+        #Distance - Chooses the largest shortcut
+        #Metric - Checks whether the move is closer or farther from the previous decision point
+        #First move?
+        if self.past_moves is None:
+            self.past_moves = []
+            self.decision_points = OD()
+            self.backtracking = False
+            self.snake.direction = "START"
+            print "[0] SEEKING [0]..."
+        
+        possible_moves = self.snake.getMoves()
+        #For this one we want to concentrate on only the blue and white blocks
+        #Unlike the backtracker we will accept a grey move that is is in our
+        #past_moves and is between us and the last decision point.
+        white_blocks = {}
+        blue_blocks = []
+        grey_blocks = []
+        move_direction = None
+        our_move = None
+        
+        for direction, move in possible_moves.iteritems():
+            if move[0] is not None:
+                if move[1] == 0:
+                    white_blocks[direction] = move
+                if move[1] == 1:
+                    blue_blocks.append([move, direction])
+                if move[1] == 5:
+                    grey_blocks.append(move)
+        
+        
+        #No more good moves, check if we got a good grey move or not, backtrack if not
+        if len(white_blocks) == 0 and len(blue_blocks) == 0:
+            #Check for shortcuts
+            if len(grey_blocks) > 0:
+                #Keep track of all the shortcuts
+                possible_shortcuts = []
+                
+                #Figure out how far to slice back in our past_moves
+                last_decision_point = self.decision_points.keys()[-1]
+                last_decision_point_index = self.past_moves.index(last_decision_point)
+                shortcut_slice = self.past_moves[last_decision_point_index:-1] #Ignore our last move, otherwise we are just backtracking
+                for grid in grey_blocks:
+                    if grid[0] in shortcut_slice:
+                        possible_shortcuts.append(grid[0])
+                
+                if len(possible_shortcuts) > 0:
+                    
+                    #Take the first shortcut we find, no preference
+                    if mode.lower() == "first":
+                        our_move = possible_shortcuts[0]
+                    
+                    #Choose the largest shortcut
+                    elif mode.lower() == "distance":
+                        print "DISTANCE_MODE_NOT_IMPLEMENTED"
+                    
+                    elif mode.lower() == "metric":
+                        print "METRIC_MODE_NOT_IMPLEMENTED"
+                    
+                    if our_move is not None:    
+                        move_direction = "SC"
+                        #Update last_moves to remove our shortcut
+                        self.past_moves = self.past_moves[:self.past_moves.index(our_move)]
+                        print "[Move %s] FOUND SHORTCUT! [PAST_MOVES: %s]" % (self.context.total_moves, len(self.past_moves))
             
+            #Failed to find shortcut, backtrack
+            if our_move is None:
+                if self.backtracking is False:
+                    print "[Move %s] BACKTRACKING [PAST_MOVES: %s]..." % (self.context.total_moves, len(self.past_moves))
+                self.backtracking = True
+                move_direction = "BT"
+                our_move = self.past_moves.pop(-1)
+        #We have a blue or white move, append our current grid to the past moves.
+        else:
+            self.past_moves.append(self.snake.current_grid)
+        
+        #Blue moves first, then white.
+        if len(blue_blocks) > 0:
+            if self.backtracking is True:
+                print "[Move %s] SEEKING [PAST_MOVES: %s]..." % (self.context.total_moves, len(self.past_moves))
+            self.backtracking = False
+            our_move = blue_blocks.pop(0) #Take the first one
+            move_direction = our_move[1]
+            our_move = our_move[0][0]
+        elif len(white_blocks) > 0:
+            if self.backtracking is True:
+                print "[Move %s] SEEKING [PAST_MOVES: %s]..." % (self.context.total_moves, len(self.past_moves))
+            self.backtracking = False
+            #Pick first choice given to us if its the start or we can't continue on in the same direction as before
+            if self.snake.direction == "START" or white_blocks.has_key(self.snake.direction) is False:
+                move_direction = white_blocks.keys()[0]
+                our_move = white_blocks[move_direction][0]
+            else:
+                our_move = white_blocks[self.snake.direction][0]
+                move_direction = self.snake.direction
+            del(white_blocks[move_direction])
+        
+        
+        #If there are any other white or blue block moves we add them to current_grid's list in self.decision_points
+        if len(white_blocks) > 0:
+            if self.decision_points.has_key(self.snake.current_grid) is False:
+                self.decision_points[self.snake.current_grid] = []
+            for direction, grid in white_blocks.iteritems():
+                self.decision_points[self.snake.current_grid].append(grid[0])
+        if len(blue_blocks) > 0:
+            if self.decision_points.has_key(self.snake.current_grid) is False:
+                self.decision_points[self.snake.current_grid] = []
+            for grid in blue_blocks:
+                self.decision_points[self.snake.current_grid].append(grid[0][0])
+                
+        #Similarly, remove our current move from the list of decision_points if it exists
+        for decision_point, grid_list in self.decision_points.iteritems():
+            if our_move in grid_list:
+                self.decision_points[decision_point].pop(grid_list.index(our_move))
+                #If that was the last move for this decision point, remove it from the dict
+                if len(self.decision_points[decision_point]) == 0:
+                    del(self.decision_points[decision_point])
+        
+        #Make our move and update our direction of travel
+        self.snake.direction = move_direction
+        self.snake.moveSnake(our_move)
+        
 
 class Snake(object):
     def __init__(self, start_grid, grid_item_states, game_grid, grid_item_tracker, context):
@@ -271,7 +404,7 @@ class uiFunctions(object):
         self.total_moves += 1
         self.MW.moves_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#000000;\">%s</span></p></body></html>" % self.total_moves)
     
-    def resetGrid(self):
+    def resetGrid(self, is_reload=False):
         #Stop any current run
         try:
             self.stopButtonPressed()
@@ -296,6 +429,9 @@ class uiFunctions(object):
         #Finally unlock the grid
         self.grid_locked = False
         
+        #Yeah this is lazy, but meh
+        if is_reload is False:
+            self.MW.MainWindow.setWindowTitle("Algosnake :: Blank Grid")
     
     
     def setGridItem(self, grid, new_mode):
@@ -331,6 +467,7 @@ class uiFunctions(object):
     
     
     def itemClicked(self, row, column):
+        print "(%s, %s)" % (row, column)
         if self.grid_locked == True:
             return
         
@@ -391,9 +528,8 @@ class uiFunctions(object):
     def updateSpeed(self):
         global TICKRATE_MS
         #Figure out speed
-        #            Super high speeds 20-30              High speeds 11-20                  Low speeds 1-10
-        speeds = [x for x in range(1, 11, 1)] + [x for x in range(10, 110, 10)] + [x for x in range(100, 1100, 100)]
-        speeds.reverse()
+        #            Low speeds 1-10              High speeds 11-19                  Super high speeds 20-28
+        speeds = [x for x in range(1000, 0, -100)] + [x for x in range(90, 0, -10)] + [x for x in range(9, 0, -1)]
         TICKRATE_MS = speeds[self.MW.speed_selector.value()-1]
         
     
@@ -435,7 +571,7 @@ class uiFunctions(object):
             return
         #make a copy of the loadstate and then reset everything
         loadstate = DC(self.loadstate)
-        self.resetGrid()
+        self.resetGrid(is_reload=True)
         self.start_grid = loadstate["start_grid"]
         self.total_objectives = 0
         #Load the grid
@@ -455,7 +591,6 @@ class uiFunctions(object):
             pass
         
         loadfilepath = self.fileDialogMaster(QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, "Load Saved Grid...")
-        
         if len(loadfilepath) > 0:
             with open(loadfilepath, "r") as loadedfile:
                 loadeddata = loadedfile.read()
@@ -480,4 +615,5 @@ class uiFunctions(object):
                 self.total_objectives += 1
             self.setGridItem(grid, mode)
         
+        self.MW.MainWindow.setWindowTitle("Algosnake :: %s" % loadfilepath)
         self.setLoadState()
