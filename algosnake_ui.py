@@ -188,8 +188,8 @@ class Algosnake_MainWindow(object):
         self.addAlgo("Random - Prefer Unexplored")
         self.addAlgo("Backtrack with memory - straight until obstructed")
         self.addAlgo("Backtracker - Shortcutter")
-        #self.addAlgo("Backtracker - Shortcutter - Prefer largest cut")
-        #self.addAlgo("Backtracker - Shortcutter w/ Metric")
+        self.addAlgo("Backtracker - Shortcutter - Prefer largest cut")
+        self.addAlgo("Backtracker - Shortcutter w/ Metric")
         
 
     def retranslateUi(self, MainWindow):

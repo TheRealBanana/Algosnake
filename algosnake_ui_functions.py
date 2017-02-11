@@ -62,10 +62,10 @@ class RunInstance(threading.Thread):
                 self.backtracker()
             elif current_algo == "Backtracker - Shortcutter":
                 self.backtracker_shortcuter()
-            #elif current_algo == "Backtracker - Shortcutter - Prefer largest cut":
-            #    self.backtracker_shortcuter(mode="distance")
-            #elif current_algo == "Backtracker - Shortcutter w/ Metric":
-            #    self.backtracker_shortcuter(mode="metric")
+            elif current_algo == "Backtracker - Shortcutter - Prefer largest cut":
+                self.backtracker_shortcuter(mode="distance")
+            elif current_algo == "Backtracker - Shortcutter w/ Metric":
+                self.backtracker_shortcuter(mode="metric")
             else:
                 self.random_move_nometric()
             
@@ -188,6 +188,14 @@ class RunInstance(threading.Thread):
         move_direction = None
         our_move = None
         
+        #Prune up our decision points
+        for decision_point, grid_list in self.decision_points.iteritems():
+            if self.snake.current_grid in grid_list:
+                self.decision_points[decision_point].pop(grid_list.index(self.snake.current_grid))
+                #If that was the last move for this decision point, remove it from the dict
+                if len(self.decision_points[decision_point]) == 0:
+                    del(self.decision_points[decision_point])
+        
         for direction, move in possible_moves.iteritems():
             if move[0] is not None:
                 if move[1] == 0:
@@ -202,34 +210,55 @@ class RunInstance(threading.Thread):
         if len(white_blocks) == 0 and len(blue_blocks) == 0:
             #Check for shortcuts
             if len(grey_blocks) > 0:
-                #Keep track of all the shortcuts
-                possible_shortcuts = []
-                
                 #Figure out how far to slice back in our past_moves
-                last_decision_point = self.decision_points.keys()[-1]
-                last_decision_point_index = self.past_moves.index(last_decision_point)
-                shortcut_slice = self.past_moves[last_decision_point_index:-1] #Ignore our last move, otherwise we are just backtracking
-                for grid in grey_blocks:
-                    if grid[0] in shortcut_slice:
-                        possible_shortcuts.append(grid[0])
-                
-                if len(possible_shortcuts) > 0:
+                try:
+                    last_decision_point = self.decision_points.keys()[-1]
+                except:
+                    pass
+                else:
+                    last_decision_point_index = self.past_moves.index(last_decision_point)
+                    shortcut_slice = self.past_moves[last_decision_point_index:-1] #Ignore our last move, otherwise we are just backtracking
                     
-                    #Take the first shortcut we find, no preference
-                    if mode.lower() == "first":
-                        our_move = possible_shortcuts[0]
+                    possible_shortcuts = []
+                    for grid in grey_blocks:
+                        if grid[0] in shortcut_slice:
+                            possible_shortcuts.append(grid[0])
                     
-                    #Choose the largest shortcut
-                    elif mode.lower() == "distance":
-                        print "DISTANCE_MODE_NOT_IMPLEMENTED"
-                    
-                    elif mode.lower() == "metric":
-                        print "METRIC_MODE_NOT_IMPLEMENTED"
-                    
-                    if our_move is not None:    
+                    if len(possible_shortcuts) > 0:
+                        #Take the first shortcut we find, no preference
+                        if mode.lower() == "first":
+                            our_move = possible_shortcuts[0]
+                        
+                        #Choose the largest shortcut
+                        elif mode.lower() == "distance":
+                            sorted_index_list = [self.past_moves.index(i) for i in possible_shortcuts]
+                            sorted_index_list.sort()
+                            #largest shortcut is the farthest back in our past_moves
+                            our_move = self.past_moves[sorted_index_list[0]]
+                        
+                        elif mode.lower() == "metric":
+                            #Check distance between the last decision point and each possible move
+                            #and chose the move that gets us closest.
+                            distances = {}
+                            #Now I wish I paid more attention in math class... :(
+                            for grid in possible_shortcuts:
+                                #first term, x/columns
+                                t1 = (last_decision_point[1] - grid[1])**2
+                                #second term, y/rows
+                                t2 = (last_decision_point[0] - grid[0])**2
+                                final_distance = sqrt(t1 + t2)
+                                #This could overwrite if multiple moves are the same distance
+                                #We'll take that chance for now and maybe improve later
+                                distances[final_distance] = grid
+                            #Find the one that gets us closer
+                            sorted_distances = distances.keys()
+                            sorted_distances.sort()
+                            our_move = distances[sorted_distances[0]]
+                            
                         move_direction = "SC"
                         #Update last_moves to remove our shortcut
                         self.past_moves = self.past_moves[:self.past_moves.index(our_move)]
+                        
                         print "[Move %s] FOUND SHORTCUT! [PAST_MOVES: %s]" % (self.context.total_moves, len(self.past_moves))
             
             #Failed to find shortcut, backtrack
@@ -238,7 +267,10 @@ class RunInstance(threading.Thread):
                     print "[Move %s] BACKTRACKING [PAST_MOVES: %s]..." % (self.context.total_moves, len(self.past_moves))
                 self.backtracking = True
                 move_direction = "BT"
-                our_move = self.past_moves.pop(-1)
+                try:
+                    our_move = self.past_moves.pop(-1)
+                except:
+                    print "[Move %s] BACKTRACKING FAILED - GRID UNSOLVABLE"
         #We have a blue or white move, append our current grid to the past moves.
         else:
             self.past_moves.append(self.snake.current_grid)
@@ -535,7 +567,6 @@ class uiFunctions(object):
     
     def fileDialogMaster(self, main_mode, file_mode, dialog_caption, filters="Algosnake Grid (*.gridstate)"):
         start_dir = os.getcwd()
-        print start_dir
         fileDialog = QtGui.QFileDialog()
         fileDialog.AcceptMode = main_mode
         fileDialog.setDirectory(start_dir)
