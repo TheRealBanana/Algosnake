@@ -36,11 +36,15 @@ class RunInstance(threading.Thread):
         while self.quitting is False:
             if self.context.start_grid == None:
                 print "NO START POINT SET!"
-                #unlock grid to allow setting of start
-                self.context.grid_locked = False
-                self.context.MW.start_button.setEnabled(True)
-                self.context.MW.stop_button.setEnabled(False)
                 self.quitting = True
+                #unlock grid
+                self.context.MW.MainWindow.emit(SIGNAL("unlockGrid"))
+                continue
+            elif self.context.finish_grid is None and self.context.total_objectives == 0:
+                print "NO FINISH GRID OR OBJECTIVES SET, YOU MUST SET SOMETHING!"
+                self.quitting = True
+                #unlock grid
+                self.context.MW.MainWindow.emit(SIGNAL("unlockGrid"))
                 continue
             sleep(float(TICKRATE_MS/float(1000)))
             #Update clock if necessary
@@ -73,6 +77,10 @@ class RunInstance(threading.Thread):
                 print "FOUND THEM ALL, WE'RE DONE!"
                 self.context.MW.stop_button.setEnabled(False)
                 self.quitting = True
+            elif self.snake.found_finish == True:
+                print "TOTAL TIME TO FINISH: %s seconds" % self.context.clock_timer
+                self.context.MW.stop_button.setEnabled(False)
+                self.quitting = True
         
         
     def random_move_nometric(self):
@@ -95,8 +103,8 @@ class RunInstance(threading.Thread):
         for direction, move_infos in possible_moves.iteritems():
             if move_infos[0] is not None:
                 #Prefer objective, then fresh grid, then old grid
-                if move_infos[1] == 1:
-                    #If we find an objective, break out of the move seek and set the preferred moves to just the objective's grid
+                if move_infos[1] == 1 or move_infos[1] == 6:
+                    #If we find an objective or finish, break out of the move seek and set the preferred moves to just the objective/finish grid
                     preferred_moves = [move_infos[0]]
                     break
                 elif move_infos[1] == 0:
@@ -126,7 +134,8 @@ class RunInstance(threading.Thread):
             if move[0] is not None:
                 if move[1] == 0:
                     white_blocks[direction] = move
-                if move[1] == 1:
+                #We treat the finish block like the blue blocks for all intents and purposes
+                if move[1] == 1 or move[1] == 6:
                     blue_blocks.append([move, direction])
         #No more good moves, backtrack one move
         if len(white_blocks) == 0 and len(blue_blocks) == 0:
@@ -200,7 +209,7 @@ class RunInstance(threading.Thread):
             if move[0] is not None:
                 if move[1] == 0:
                     white_blocks[direction] = move
-                if move[1] == 1:
+                if move[1] == 1 or move[1] == 6:
                     blue_blocks.append([move, direction])
                 if move[1] == 5:
                     grey_blocks.append(move)
@@ -320,7 +329,10 @@ class RunInstance(threading.Thread):
         #Make our move and update our direction of travel
         self.snake.direction = move_direction
         self.snake.moveSnake(our_move)
-        
+    
+    def pathfinder(self):
+        #Coming next
+        pass
 
 class Snake(object):
     def __init__(self, start_grid, grid_item_states, game_grid, grid_item_tracker, context):
@@ -331,6 +343,7 @@ class Snake(object):
         self.grid_item_states = grid_item_states
         self.collected_objectives = 0
         self.found_all = False
+        self.found_finish = False
         self.context = context
         self.direction = "NOTUSED"
     
@@ -371,6 +384,10 @@ class Snake(object):
         #Check if we found an objective
         if self.grid_item_tracker[new_grid] == 1:
             self.foundObjective()
+            
+        #check if we found the finish
+        elif self.grid_item_tracker[new_grid] == 6:
+            self.foundFinish()
         
         #color our old grid dark grey and set its state to number 5 (past position)
         current_grid_item = self.game_grid.item(*self.current_grid)
@@ -395,6 +412,11 @@ class Snake(object):
         self.context.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">%s/%s</span></p></body></html>" % (self.collected_objectives, self.context.total_objectives))
         if self.collected_objectives == self.context.total_objectives:
             self.found_all = True
+            
+    def foundFinish(self):
+        print "[Move %s] FOUND FINISH!" % self.context.total_moves
+        self.found_finish = True
+        
         
     
 class uiFunctions(object):
@@ -403,9 +425,11 @@ class uiFunctions(object):
         self.game_instance_thread = None
         self.grid_item_tracker = {}
         self.grid_item_states = {}
+        self.objective_grids = [] #So we don't have to search for them every time set the finish grid and have to reset them all
         self.grid_locked = False
         self.grid_size = (25, 36)
         self.start_grid = None
+        self.finish_grid = None
         self.clock_timer = 0
         self.total_objectives = 0
         self.total_moves = 0
@@ -422,7 +446,8 @@ class uiFunctions(object):
         self.grid_item_states[4] = QtGui.QBrush(QtGui.QColor(66, 255, 0, 255)) #Keeping to allow changing current position color more easily in the future
         #past position
         self.grid_item_states[5] = QtGui.QBrush(QtGui.QColor(85, 85, 85, 255))
-    
+        #finish
+        self.grid_item_states[6] = QtGui.QBrush(QtGui.QColor(168, 0, 255, 255))
     
     def updateClock(self):
         self.clock_timer += 1
@@ -436,10 +461,15 @@ class uiFunctions(object):
         self.total_moves += 1
         self.MW.moves_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#000000;\">%s</span></p></body></html>" % self.total_moves)
     
+    def unlockGrid(self):
+        self.grid_locked = False
+        self.MW.stop_button.setEnabled(False)
+        self.MW.start_button.setEnabled(True)
+    
     def resetGrid(self, is_reload=False):
         #Stop any current run
         try:
-            self.stopButtonPressed()
+            self.stopButtonPressed(quiet=True)
         except:
             pass
         #Loop through each grid item and set it to default
@@ -456,10 +486,11 @@ class uiFunctions(object):
         self.MW.moves_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#000000;\">0</span></p></body></html>")
         self.clock_timer = 0
         self.total_objectives = 0
+        self.objective_grids = []
         self.total_moves = 0
         self.loadstate = None
         #Finally unlock the grid
-        self.grid_locked = False
+        self.unlockGrid()
         
         #Yeah this is lazy, but meh
         if is_reload is False:
@@ -472,26 +503,58 @@ class uiFunctions(object):
         #Decrement objective if it was set
         if old_grid_mode == 1:
             self.total_objectives -= 1
+            self.objective_grids.remove(grid)
             self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0/%s</span></p></body></html>" % self.total_objectives)
         
         #Reset start position
         elif old_grid_mode == 3:
             self.start_grid = None
+            
+        #reset finish position
+        elif old_grid_mode == 6:
+            self.finish_grid = None
 
         #increment new objective
         if new_mode == 1:
             self.total_objectives += 1
+            self.objective_grids.append(grid)
             self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0/%s</span></p></body></html>" % self.total_objectives)
+            #Reset the finish grid if its been set. We can't have both objectives and the finish grid set at once.
+            if self.finish_grid is not None:
+                self.setGridItem(self.finish_grid, 0)
+            
             
         #Setting new start position
         elif new_mode == 3:
             #reset old start grid if necessary
             if self.start_grid is not None:
-                old_start_grid_item = self.MW.game_grid.item(self.start_grid[0], self.start_grid[1])
+                old_start_grid_item = self.MW.game_grid.item(*self.start_grid)
                 old_start_grid_item.setBackground(self.grid_item_states[0])
-                self.grid_item_tracker[(self.start_grid[0], self.start_grid[1])] = 0
+                self.grid_item_tracker[self.start_grid] = 0
             #set new start grid
             self.start_grid = (grid[0], grid[1])
+        
+        #Setting new finish position
+        elif new_mode == 6:
+            #Reset the old finish grid if its set
+            if self.finish_grid is not None:
+                old_finish_grid_item = self.MW.game_grid.item(*self.finish_grid)
+                old_finish_grid_item.setBackground(self.grid_item_states[0])
+                self.grid_item_tracker[self.finish_grid] = 0
+            #Reset any objectives if they have been set
+            if self.total_objectives > 0:
+                for obj_grid in self.objective_grids:
+                    #Would recurse but it only resets half of them when I do lol
+                    old_obj_grid_item = self.MW.game_grid.item(*obj_grid)
+                    old_obj_grid_item.setBackground(self.grid_item_states[0])
+                    self.grid_item_tracker[obj_grid] = 0
+                    self.total_objectives -= 1
+                self.total_objectives = 0
+                self.objective_grids = []
+                self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0/0</span></p></body></html>")
+            
+            self.finish_grid = (grid[0], grid[1])
+        
         
         #Finally update tracker and update new item background
         self.grid_item_tracker[(grid[0], grid[1])] = new_mode
@@ -513,6 +576,9 @@ class uiFunctions(object):
         #Holding shift sets a roadblock
         elif keyboard_mods == QtCore.Qt.ShiftModifier:
             self.setGridItem((row, column), 2)
+        #Holding control and shift sets finish position
+        elif keyboard_mods == QtCore.Qt.ShiftModifier | QtCore.Qt.ControlModifier:
+            self.setGridItem((row, column), 6)
         #Normal click
         else:   
             #Toggle straight to off from all blocks
@@ -534,15 +600,15 @@ class uiFunctions(object):
         if self.loadstate is None:
             self.setLoadState()
     
-    def stopButtonPressed(self):
+    def stopButtonPressed(self, quiet=False):
         self.game_instance_thread.quitting = True
         self.game_instance_thread.join()
         self.start_grid = self.game_instance_thread.snake.current_grid
         self.grid_item_tracker[self.game_instance_thread.snake.current_grid] = 3
         self.MW.start_button.setEnabled(True)
         self.MW.stop_button.setEnabled(False)
-        self.grid_locked = False
-        print "ROUND STOPPED"
+        if quiet == False:
+            print "ROUND STOPPED"
     
     
     def setLoadState(self):
@@ -613,6 +679,8 @@ class uiFunctions(object):
             self.setGridItem(grid, mode)
         
         self.setLoadState()
+        #Unlock the grid
+        self.grid_locked = False
             
     def loadGrid(self):
         #Stop if currently running

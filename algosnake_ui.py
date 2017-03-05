@@ -170,6 +170,7 @@ class Algosnake_MainWindow(object):
         QtCore.QObject.connect(self.speed_selector, QtCore.SIGNAL(_fromUtf8("valueChanged(int)")), self.ui_functions.updateSpeed)
         QtCore.QObject.connect(self.MainWindow, QtCore.SIGNAL("appClosing"), self.ui_functions.stopAndQuit)
         QtCore.QObject.connect(self.MainWindow, QtCore.SIGNAL("snakeMoved"), self.ui_functions.incrementMoveCount)
+        QtCore.QObject.connect(self.MainWindow, QtCore.SIGNAL("unlockGrid"), self.ui_functions.unlockGrid)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
         
         #Set up the grid

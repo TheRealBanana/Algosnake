@@ -10,11 +10,13 @@ White = Normal unexplored block
 Grey = Explored block  
 Blue = Objective block  
 Red = Roadblock block  
-Green = Start point/Current position.  
+Green = Start point/current position
+Purple = Finish position
 
 Normal click = Set/Unset objective  
 Shift click = Set roadblock  
-Control click = Set start point  
+Control click = Set start position 
+Control+Shift Click = Set finish position
 
 
 Screenshot of a random seek
