@@ -9,6 +9,7 @@
 
 from PyQt4 import QtCore, QtGui
 from algosnake_ui_functions import uiFunctions
+from minigame import MiniGame
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -145,10 +146,14 @@ class Algosnake_MainWindow(object):
         self.action_Open.setObjectName(_fromUtf8("action_Open"))
         self.action_Save = QtGui.QAction(MainWindow)
         self.action_Save.setObjectName(_fromUtf8("action_Save"))
+        self.action_minigame = QtGui.QAction(MainWindow)
+        self.action_minigame.setObjectName(_fromUtf8("action_minigame"))
         self.action_Quit = QtGui.QAction(MainWindow)
         self.action_Quit.setObjectName(_fromUtf8("action_Quit"))
         self.menuFile.addAction(self.action_Open)
         self.menuFile.addAction(self.action_Save)
+        self.menuFile.addSeparator()
+        self.menuFile.addAction(self.action_minigame)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.action_Quit)
         self.menuBar.addAction(self.menuFile.menuAction())
@@ -166,6 +171,7 @@ class Algosnake_MainWindow(object):
         QtCore.QObject.connect(self.clear_button, QtCore.SIGNAL(_fromUtf8("clicked()")), self.ui_functions.resetGrid)
         QtCore.QObject.connect(self.action_Open, QtCore.SIGNAL(_fromUtf8("triggered()")), self.ui_functions.loadGrid)
         QtCore.QObject.connect(self.action_Save, QtCore.SIGNAL(_fromUtf8("triggered()")), self.ui_functions.saveGrid)
+        QtCore.QObject.connect(self.action_minigame, QtCore.SIGNAL(_fromUtf8("triggered()")), self.loadSnakeMinigame)
         QtCore.QObject.connect(self.action_Quit, QtCore.SIGNAL(_fromUtf8("triggered()")), self.ui_functions.stopAndQuit)
         QtCore.QObject.connect(self.speed_selector, QtCore.SIGNAL(_fromUtf8("valueChanged(int)")), self.ui_functions.updateSpeed)
         QtCore.QObject.connect(self.MainWindow, QtCore.SIGNAL("appClosing"), self.ui_functions.stopAndQuit)
@@ -193,6 +199,11 @@ class Algosnake_MainWindow(object):
         self.addAlgo("Backtracker - Shortcutter w/ Metric")
         
 
+    def loadSnakeMinigame(self):
+        self.minigame = MiniGame(self)
+        self.minigame.initState()
+    
+    
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(_translate("MainWindow", "Algosnake", None))
         self.start_button.setText(_translate("MainWindow", "Start", None))
@@ -215,4 +226,5 @@ class Algosnake_MainWindow(object):
         self.menuFile.setTitle(_translate("MainWindow", "&File", None))
         self.action_Open.setText(_translate("MainWindow", "&Load Grid...", None))
         self.action_Save.setText(_translate("MainWindow", "&Save Grid As...", None))
+        self.action_minigame.setText(_translate("MainWindow", "S&nake Mini-Game", None))
         self.action_Quit.setText(_translate("MainWindow", "&Quit", None))

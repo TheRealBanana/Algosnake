@@ -331,7 +331,25 @@ class RunInstance(threading.Thread):
         self.snake.moveSnake(our_move)
     
     def pathfinder(self):
-        #Coming next
+        #I'm conflicted as to how to approach the pathfinder algo.
+        #My first idea is to basically search out every single move from our current position, to a maximum depth that can be configured.
+        #This would basically tell the snake to "imagine" going off in a random direction and each time it comes to a decision point,
+        #take the first one and so on until it reaches the configured maximum depth, then go back to the last decision point and follow the
+        #second available path to the maximum depth and so on and so forth until all possible paths are explored to the maximum depth. We
+        #then end up with a path chain and by simply choosing the shortest path that ended at the objective we should have our solution.
+        #
+        #If none ended at the objective we take the top X shortest chains and extend each of those to a total size of 2 times the maximum depth.
+        #We can maybe do this a number of times if we still don't end up with the objective, sort of hopping along. Configurable options are
+        #max_recusions and recursion_stack_size to control the number of times we retry until we find the objective and the number of shortest
+        #chains we take each retry, respective.
+        #
+        #This idea is extremely computationally expensive but should produce the best result in terms of shortest path (as long as the maximum
+        #depth is set high enough to find it on the first try). What will be interesting is to see how well it performs when it reaches the
+        #maximum depth and has to reextend a couple times.
+        #
+        #Unfortunately I can't really think of another way. There are some minor shortcuts we can take to narrow down the search, like excluding
+        #paths with lengths that are greater than the shortest already-found path to the objective, but its still going to be brute-forcing it
+        #for the most part. 
         pass
 
 class Snake(object):
@@ -466,12 +484,13 @@ class uiFunctions(object):
         self.MW.stop_button.setEnabled(False)
         self.MW.start_button.setEnabled(True)
     
-    def resetGrid(self, is_reload=False):
+    def resetGrid(self, is_reload=False, minigame_override=False):
         #Stop any current run
-        try:
-            self.stopButtonPressed(quiet=True)
-        except:
-            pass
+        if minigame_override is False:
+            try:
+                self.stopButtonPressed(quiet=True)
+            except:
+                pass
         #Loop through each grid item and set it to default
         for row in range(0, self.grid_size[0] + 1):
             for column in range(0, self.grid_size[1] + 1):
@@ -490,7 +509,8 @@ class uiFunctions(object):
         self.total_moves = 0
         self.loadstate = None
         #Finally unlock the grid
-        self.unlockGrid()
+        if minigame_override is False:
+            self.unlockGrid()
         
         #Yeah this is lazy, but meh
         if is_reload is False:
@@ -499,6 +519,7 @@ class uiFunctions(object):
     
     def setGridItem(self, grid, new_mode):
         new_start_grid_item = self.MW.game_grid.item(*grid)
+        
         old_grid_mode = self.grid_item_tracker[grid]
         #Decrement objective if it was set
         if old_grid_mode == 1:
