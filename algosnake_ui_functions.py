@@ -517,23 +517,25 @@ class uiFunctions(object):
             self.MW.MainWindow.setWindowTitle("Algosnake :: Blank Grid")
     
     
-    def setGridItem(self, grid, new_mode):
+    
+    def setGridItem(self, grid, new_mode, init_mode=False):
         new_start_grid_item = self.MW.game_grid.item(*grid)
         
-        old_grid_mode = self.grid_item_tracker[grid]
-        #Decrement objective if it was set
-        if old_grid_mode == 1:
-            self.total_objectives -= 1
-            self.objective_grids.remove(grid)
-            self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0/%s</span></p></body></html>" % self.total_objectives)
-        
-        #Reset start position
-        elif old_grid_mode == 3:
-            self.start_grid = None
+        if init_mode is False:
+            old_grid_mode = self.grid_item_tracker[grid]
+            #Decrement objective if it was set
+            if old_grid_mode == 1:
+                self.total_objectives -= 1
+                self.objective_grids.remove(grid)
+                self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0/%s</span></p></body></html>" % self.total_objectives)
             
-        #reset finish position
-        elif old_grid_mode == 6:
-            self.finish_grid = None
+            #Reset start position
+            elif old_grid_mode == 3:
+                self.start_grid = None
+                
+            #reset finish position
+            elif old_grid_mode == 6:
+                self.finish_grid = None
 
         #increment new objective
         if new_mode == 1:
@@ -667,6 +669,9 @@ class uiFunctions(object):
     
     
     #We're not doing any checking, just save and load. We pickle the data just to add some basic level of data integrity checking.
+    #We can save a LOT of space in our .gridstate files by not saving default squares (white blocks) and instead assuming any missing
+    #blocks are white blocks. That way we only save the blue, red, green, and purple blocks. That should cut down on the size of the smaller
+    #gridstates by a ton.
     def saveGrid(self):
         savefilepath = self.fileDialogMaster(QtGui.QFileDialog.AcceptSave, QtGui.QFileDialog.AnyFile, "Save Current Grid...")
         
@@ -731,9 +736,7 @@ class uiFunctions(object):
         #Set up the grid and count objectives
         self.total_objectives = 0
         for grid, mode in self.grid_item_tracker.iteritems():
-            if mode == 1:
-                self.total_objectives += 1
-            self.setGridItem(grid, mode)
+            self.setGridItem(grid, mode, init_mode=True)
         
         self.MW.MainWindow.setWindowTitle("Algosnake :: %s" % loadfilepath)
         self.setLoadState()

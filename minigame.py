@@ -14,6 +14,10 @@ INIT_SNAKE_SIZE = 25
 #Default starting grid
 DEFAULT_START_GRID=(20,2)
 
+
+
+COUNTDOWN_GRIDS = [countdown_1_grid, countdown_2_grid, countdown_3_grid]
+
 #Thought about reusing the snake class I already wrote but I 
 #need to replace practically all of the functions anyway.
 class PlayerSnake(object):
@@ -41,8 +45,7 @@ class MiniGame(object):
     def countdown(self):
         self.uif.resetGrid(minigame_override=True)
         if self.number > 0:
-            countdown_grids = [countdown_1_grid, countdown_2_grid, countdown_3_grid]
-            for grid, mode in countdown_grids[self.number-1][0].iteritems():
+            for grid, mode in COUNTDOWN_GRIDS[self.number-1][0].iteritems():
                 self.uif.setGridItem(grid, mode)
             self.MW.setWindowTitle("Algosnake :: Snake mini-game :: Starting Game In %s" % self.number)
             self.number -= 1
@@ -58,11 +61,13 @@ class MiniGame(object):
             print "And now we would let you play and sech, you know all that good stuff."
     
     def startButtonPressed(self):
-        self.context.start_button.setEnabled(False)
-        self.context.stop_button.setEnabled(True)
+        #I tried using a simple loop with a sleep but it prevented the UI from updating. QTimer uses the signal/slot
+        #system to launch its callable which doesn't block the main thread so it updates fine.
         self.countdown_timer = QTimer()
         QObject.connect(self.countdown_timer, SIGNAL("timeout()"), self.context.minigame.countdown)
         self.countdown_timer.start(1000)
+        self.context.start_button.setEnabled(False)
+        self.context.stop_button.setEnabled(True)
         
     def stopButtonPressed(self):
         print "I would kill the game, but I'm too lazy. Just restart the damn thing."
