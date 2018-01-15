@@ -8,6 +8,7 @@
 # WARNING! All changes made in this file will be lost!
 
 from PyQt4 import QtCore, QtGui
+from PyQt4.QtCore import Qt
 from algosnake_ui_functions import uiFunctions
 from minigame import MiniGame
 
@@ -24,6 +25,27 @@ try:
 except AttributeError:
     def _translate(context, text, disambig):
         return QtGui.QApplication.translate(context, text, disambig)
+
+#Which keys control movement, mess with this as you like
+MVMT_KEYS = {}
+MVMT_KEYS[Qt.Key_Up] = "up"
+MVMT_KEYS[Qt.Key_Down] = "down"
+MVMT_KEYS[Qt.Key_Left] = "left"
+MVMT_KEYS[Qt.Key_Right] = "right"
+
+
+class modifiedQTableWidget(QtGui.QTableWidget):
+    def __init__(self, MW, parent=None):
+        super(modifiedQTableWidget, self).__init__(parent)
+        self.snakeGame = False
+        self.MW = MW
+    
+    def keyPressEvent(self, event):
+        if self.snakeGame is True:
+            if event.key() in MVMT_KEYS.keys():
+                self.MW.emit(QtCore.SIGNAL("changeSnakeDirection"), MVMT_KEYS[event.key()])
+        else:
+            super(modifiedQTableWidget, self).keyPressEvent(event)
 
 class Algosnake_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -43,7 +65,7 @@ class Algosnake_MainWindow(object):
         self.game_grid_frame.setObjectName(_fromUtf8("game_grid_frame"))
         self.gridLayout = QtGui.QGridLayout(self.game_grid_frame)
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
-        self.game_grid = QtGui.QTableWidget(self.game_grid_frame)
+        self.game_grid = modifiedQTableWidget(MainWindow, self.game_grid_frame)
         self.game_grid.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
         self.game_grid.setTabKeyNavigation(False)
         self.game_grid.setProperty("showDropIndicator", False)

@@ -239,6 +239,7 @@ class RunInstance(threading.Thread):
                             our_move = possible_shortcuts[0]
                         
                         #Choose the largest shortcut
+                        #Not sure this works the way we intended.....
                         elif mode.lower() == "distance":
                             sorted_index_list = [self.past_moves.index(i) for i in possible_shortcuts]
                             sorted_index_list.sort()
@@ -466,6 +467,8 @@ class uiFunctions(object):
         self.grid_item_states[5] = QtGui.QBrush(QtGui.QColor(85, 85, 85, 255))
         #finish
         self.grid_item_states[6] = QtGui.QBrush(QtGui.QColor(168, 0, 255, 255))
+        #snake tail color
+        self.grid_item_states[7] = QtGui.QBrush(QtGui.QColor(40, 150, 0, 255))
     
     def updateClock(self):
         self.clock_timer += 1
