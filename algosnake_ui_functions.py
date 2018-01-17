@@ -352,6 +352,16 @@ class RunInstance(threading.Thread):
         #paths with lengths that are greater than the shortest already-found path to the objective, but its still going to be brute-forcing it
         #for the most part. 
         pass
+    
+    def pathfinder_simple(self):
+        #So I stopped working on this whole thing for like 9 months and now I'm coming into this cold, completely confused. The above idea sounds
+        #interesting but I think it misses a more basic premise: How can we design a pathfinder algo based on very simple rules. Sure, throwing
+        #CPU at the problem and calculating every possible route produces good results, but simple is better.
+        #So to that end, this algo simply looks at the next move and takes it if it gets it closer to the obj. That's it.
+        
+        pass
+        
+        
 
 class Snake(object):
     def __init__(self, start_grid, grid_item_states, game_grid, grid_item_tracker, context):

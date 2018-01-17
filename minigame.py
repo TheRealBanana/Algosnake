@@ -242,7 +242,12 @@ class MiniGame(object):
         #make sure its not a grid our snake occupies too.
         while new_obj_grid in self.snake.snake_grids:
             new_obj_grid = (randint(0, GRID_BOUNDS[0]), randint(0, GRID_BOUNDS[1]))
-        #Ok found a good grid, lets make it an obj
+        #Ok found a good grid, make it an obj
+        #First check if we need to remove an obj from the grid
+        if len(self.snake.objective_list) == MAX_OBJS:
+            #Remove the oldest objective from the grid
+            self.uif.setGridItem(self.snake.objective_list.pop(0), 0) #State 0 is white
+            
         self.uif.setGridItem(new_obj_grid, 1)
         self.snake.objective_list.append(new_obj_grid)
         
@@ -252,4 +257,5 @@ class MiniGame(object):
         print "GAME OVER MAN!"
         print "Final Score: %s" % len(self.snake.snake_grids)
         print "Better luck next time!"
+        #self.resetMode()
         
