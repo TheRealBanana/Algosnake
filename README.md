@@ -20,4 +20,4 @@ Control+Shift Click = Set finish position
 
 
 Screenshot of a random seek
-![Screenshot](https://i.imgur.com/JuzvP6j.png)
+![Screenshot](https://i.imgur.com/DXJ8iBW.jpg)
