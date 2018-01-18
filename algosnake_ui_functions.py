@@ -522,6 +522,7 @@ class uiFunctions(object):
         self.clock_timer = 0
         self.total_objectives = 0
         self.objective_grids = []
+        self.finish_grids = []
         self.total_moves = 0
         self.loadstate = None
         #Finally unlock the grid
@@ -539,7 +540,7 @@ class uiFunctions(object):
         
         if init_mode is False:
             #Check for old mode, otherwise mode is 0
-            if self.grid_item_tracker.keys().has_key(grid) is False:
+            if self.grid_item_tracker.has_key(grid) is False:
                 old_grid_mode = 0
             else:
                 old_grid_mode = self.grid_item_tracker[grid]
