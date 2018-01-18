@@ -8,6 +8,7 @@ from PyQt4.QtCore import SIGNAL
 from copy import deepcopy as DC
 from collections import OrderedDict as OD
 from math import sqrt
+from itertools import product as itertools_product
 import threading
 import cPickle
 import os
@@ -455,6 +456,7 @@ class uiFunctions(object):
         self.grid_item_tracker = {}
         self.grid_item_states = {}
         self.objective_grids = [] #So we don't have to search for them every time set the finish grid and have to reset them all
+        self.finish_grids = [] #Same idea for finish grids
         self.grid_locked = False
         self.grid_size = (25, 36)
         self.start_grid = None
@@ -511,6 +513,7 @@ class uiFunctions(object):
                 default_grid_item.setBackground(self.grid_item_states[0])
                 self.MW.game_grid.setItem(row, column, default_grid_item)
                 self.grid_item_tracker[(row,column)] = 0
+                
         self.start_grid = None
         #Reset time, found, and moves count to zero
         self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0/0</span></p></body></html>")
@@ -535,7 +538,11 @@ class uiFunctions(object):
         new_start_grid_item = self.MW.game_grid.item(*grid)
         
         if init_mode is False:
-            old_grid_mode = self.grid_item_tracker[grid]
+            #Check for old mode, otherwise mode is 0
+            if self.grid_item_tracker.keys().has_key(grid) is False:
+                old_grid_mode = 0
+            else:
+                old_grid_mode = self.grid_item_tracker[grid]
             #Decrement objective if it was set
             if old_grid_mode == 1:
                 self.total_objectives -= 1
@@ -689,11 +696,20 @@ class uiFunctions(object):
         savefilepath = self.fileDialogMaster(QtGui.QFileDialog.AcceptSave, QtGui.QFileDialog.AnyFile, "Save Current Grid...")
         
         if len(savefilepath) > 0:
-            savedata = [self.grid_item_tracker, self.start_grid]
+            #We only want grids that arent mode 0
+            tmp_grid_item_tracker = {} 
+            for grid, mode in self.grid_item_tracker.iteritems():
+                if mode != 0:
+                    tmp_grid_item_tracker[grid] = mode
+            
+            savedata = [tmp_grid_item_tracker, self.start_grid]
             savedata = cPickle.dumps(savedata)
             
             with open(savefilepath, "w") as savefile:
                 savefile.write(savedata)
+            
+            #GGC will probably do this anyway but im paranoid
+            del(tmp_grid_item_tracker)
         
         self.setLoadState()
     
@@ -748,8 +764,16 @@ class uiFunctions(object):
         
         #Set up the grid and count objectives
         self.total_objectives = 0
-        for grid, mode in self.grid_item_tracker.iteritems():
-            self.setGridItem(grid, mode, init_mode=True)
+        
+        #Since we can't know which grids are set and which aren't we won't loop through the loaded grid_item_tracker
+        #Instead we just loop over the known bounds of the grid and look inside grid_item_tracker for corresponding data.
+        for x, y in itertools_product(range(self.grid_size[0] + 1), range(self.grid_size[1] + 1)):
+            #Check if our grid is in the grid_item_tracker, if not create a default entry
+            if (x, y) in self.grid_item_tracker.keys():
+                self.setGridItem((x, y), self.grid_item_tracker[(x,y)], init_mode=True)
+            else:
+                self.grid_item_tracker[(x,y)] = 0
+            
         
         self.MW.MainWindow.setWindowTitle("Algosnake :: %s" % loadfilepath)
         self.setLoadState()
