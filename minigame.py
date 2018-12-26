@@ -9,25 +9,28 @@ from random import randint
 from time import time
 
 #Starting snake size, default 4
-INIT_SNAKE_SIZE = 4
+INIT_SNAKE_SIZE = 6
 
-#starting snake update speed, in milliseconds. Default one update every seconds (1000 ms)
-INIT_SNAKE_SPEED = 700
+#starting snake update speed, in milliseconds. 
+INIT_SNAKE_SPEED = 400
 
 #How much the speed will be decreased every SPEED_INCREASE_BLOCKS objectives found
-SPEED_MULTI = 0.80
+SPEED_MULTI = 0.90
+
+#After how many blocks do we increase the speed of the snake?
+SPEED_INCREASE_BLOCKS = 4
 
 #Default starting grid
 DEFAULT_START_GRID=(20, 2)
 
-#After how many blocks do we increase the speed of the snake?
-SPEED_INCREASE_BLOCKS = 2
-
 #Maximum number of objectives on the grid at once
-MAX_OBJS = 5
+MAX_OBJS = 10
+
+#Number of objectives to add to the grid at start. This number has to be less than MAX_OBJS
+NUM_START_OBJS = 3
 
 #Number of seconds between adding/removing objectives from the grid
-NEW_OBJ_INTERVAL = 5
+NEW_OBJ_INTERVAL = 4
 
 COUNTDOWN_GRIDS = [countdown_1_grid, countdown_2_grid, countdown_3_grid]
 
@@ -41,11 +44,16 @@ COUNTDOWN_GRIDS = [countdown_1_grid, countdown_2_grid, countdown_3_grid]
 #For now this has to correspond to the playable area, which right now is (25, 36).
 GRID_BOUNDS = (25, 36)
 
+
+#Just cause I know im dumb enough to mess this up and wonder why things suddenly dont work
+if NUM_START_OBJS > MAX_OBJS: NUM_START_OBJS = MAX_OBJS
+
 #Thought about reusing the snake class I already wrote but I 
 #need to replace practically all of the functions anyway.
 class PlayerSnake(object):
     def __init__(self, context, start_grid=DEFAULT_START_GRID):
         self.uif = context.ui_functions
+        self.uif.invertGridColors()
         self.current_grid = start_grid
         #self.length tracks the length the snake is supposed to be
         self.length = INIT_SNAKE_SIZE
@@ -111,6 +119,8 @@ class PlayerSnake(object):
         
         #Hit ourself! X(
         elif next_move in self.snake_grids:
+            #Color the block we ran into red
+            self.uif.setGridItem(next_move, 2)
             self.alive = False
         
         #good move
@@ -194,6 +204,9 @@ class MiniGame(object):
         self.context.clear_button.setEnabled(False)
         self.context.reset_button.setEnabled(False)
         
+        #Change the moves label to say "Score"
+        
+        
         #Disconnect the old start button connection and create a new one for our game
         QObject.disconnect(self.context.start_button, SIGNAL("clicked()"), self.context.ui_functions.startButtonPressed)
         QObject.disconnect(self.context.stop_button, SIGNAL("clicked()"), self.context.ui_functions.stopButtonPressed)
@@ -220,6 +233,9 @@ class MiniGame(object):
     
     def mainGameLoop(self):
         #Main loop here
+        #Before anything else lets populate the grid with a few objectives
+        while len(self.snake.objective_list) < NUM_START_OBJS - 1:  #-1 because we add an objective at start by default, so dont count that one.
+            self.addObjective()
         
         #First move
         if self.snake.alive == False and len(self.snake.snake_grids) == 1:

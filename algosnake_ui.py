@@ -66,6 +66,10 @@ class Algosnake_MainWindow(object):
         self.gridLayout = QtGui.QGridLayout(self.game_grid_frame)
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
         self.game_grid = modifiedQTableWidget(MainWindow, self.game_grid_frame)
+        
+        
+        
+        self.game_grid.setShowGrid(False)
         self.game_grid.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
         self.game_grid.setTabKeyNavigation(False)
         self.game_grid.setProperty("showDropIndicator", False)
@@ -164,6 +168,8 @@ class Algosnake_MainWindow(object):
         self.menuFile = QtGui.QMenu(self.menuBar)
         self.menuFile.setObjectName(_fromUtf8("menuFile"))
         MainWindow.setMenuBar(self.menuBar)
+        self.action_New = QtGui.QAction(MainWindow)
+        self.action_New.setObjectName(_fromUtf8("action_New"))
         self.action_Open = QtGui.QAction(MainWindow)
         self.action_Open.setObjectName(_fromUtf8("action_Open"))
         self.action_Save = QtGui.QAction(MainWindow)
@@ -172,6 +178,7 @@ class Algosnake_MainWindow(object):
         self.action_minigame.setObjectName(_fromUtf8("action_minigame"))
         self.action_Quit = QtGui.QAction(MainWindow)
         self.action_Quit.setObjectName(_fromUtf8("action_Quit"))
+        self.menuFile.addAction(self.action_New)
         self.menuFile.addAction(self.action_Open)
         self.menuFile.addAction(self.action_Save)
         self.menuFile.addSeparator()
@@ -191,6 +198,7 @@ class Algosnake_MainWindow(object):
         QtCore.QObject.connect(self.stop_button, QtCore.SIGNAL(_fromUtf8("clicked()")), self.ui_functions.stopButtonPressed)
         QtCore.QObject.connect(self.reset_button, QtCore.SIGNAL(_fromUtf8("clicked()")), self.ui_functions.reloadGrid)
         QtCore.QObject.connect(self.clear_button, QtCore.SIGNAL(_fromUtf8("clicked()")), self.ui_functions.resetGrid)
+        QtCore.QObject.connect(self.action_New, QtCore.SIGNAL(_fromUtf8("triggered()")), self.ui_functions.resetGrid)
         QtCore.QObject.connect(self.action_Open, QtCore.SIGNAL(_fromUtf8("triggered()")), self.ui_functions.loadGrid)
         QtCore.QObject.connect(self.action_Save, QtCore.SIGNAL(_fromUtf8("triggered()")), self.ui_functions.saveGrid)
         QtCore.QObject.connect(self.action_minigame, QtCore.SIGNAL(_fromUtf8("triggered()")), self.loadSnakeMinigame)
@@ -199,6 +207,7 @@ class Algosnake_MainWindow(object):
         QtCore.QObject.connect(self.MainWindow, QtCore.SIGNAL("appClosing"), self.ui_functions.stopAndQuit)
         QtCore.QObject.connect(self.MainWindow, QtCore.SIGNAL("snakeMoved"), self.ui_functions.incrementMoveCount)
         QtCore.QObject.connect(self.MainWindow, QtCore.SIGNAL("unlockGrid"), self.ui_functions.unlockGrid)
+        QtCore.QObject.connect(self.MainWindow, QtCore.SIGNAL("LockControls"), self.ui_functions.lock_controls)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
         
         #Set up the grid
@@ -206,11 +215,12 @@ class Algosnake_MainWindow(object):
         
         #Set up algo list
         self.setupAlgos()
-        
+
     def addAlgo(self, text):
         new_item = QtGui.QListWidgetItem()
         new_item.setText(_translate("MainWindow", text, None))
         self.algoList.addItem(new_item)
+        self.algoList.setCurrentRow(0)
     
     def setupAlgos(self):
         self.addAlgo("Random")
@@ -219,6 +229,7 @@ class Algosnake_MainWindow(object):
         self.addAlgo("Backtracker - Shortcutter")
         self.addAlgo("Backtracker - Shortcutter - Prefer largest cut")
         self.addAlgo("Backtracker - Shortcutter w/ Metric")
+        self.addAlgo("Pathfinder 1")
         
 
     def loadSnakeMinigame(self):
@@ -246,6 +257,7 @@ class Algosnake_MainWindow(object):
         
         #File menu
         self.menuFile.setTitle(_translate("MainWindow", "&File", None))
+        self.action_New.setText(_translate("MainWindow", "&New Grid", None))
         self.action_Open.setText(_translate("MainWindow", "&Load Grid...", None))
         self.action_Save.setText(_translate("MainWindow", "&Save Grid As...", None))
         self.action_minigame.setText(_translate("MainWindow", "S&nake Mini-Game", None))

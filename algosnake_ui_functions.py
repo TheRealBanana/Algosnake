@@ -34,54 +34,63 @@ class RunInstance(threading.Thread):
 
 
     def run(self):
-        while self.quitting is False:
-            if self.context.start_grid == None:
-                print "NO START POINT SET!"
-                self.quitting = True
-                #unlock grid
-                self.context.MW.MainWindow.emit(SIGNAL("unlockGrid"))
-                continue
-            elif self.context.finish_grid is None and self.context.total_objectives == 0:
-                print "NO FINISH GRID OR OBJECTIVES SET, YOU MUST SET SOMETHING!"
-                self.quitting = True
-                #unlock grid
-                self.context.MW.MainWindow.emit(SIGNAL("unlockGrid"))
-                continue
-            sleep(float(TICKRATE_MS/float(1000)))
-            #Update clock if necessary
-            if time() - self.last_clock_update >= 1:
-                self.last_clock_update = time()
-                self.context.updateClock()
-            
-            
-            #Get current algo, default to random
-            current_algo_item = self.context.MW.algoList.currentItem()
-            try:
-                current_algo = current_algo_item.text()
-            except:
-                current_algo = ""
-            
-            if current_algo == "Random - Prefer Unexplored":
-                self.random_move_nometric_prefernew()
-            elif current_algo == "Backtrack with memory - straight until obstructed":
-                self.backtracker()
-            elif current_algo == "Backtracker - Shortcutter":
-                self.backtracker_shortcuter()
-            elif current_algo == "Backtracker - Shortcutter - Prefer largest cut":
-                self.backtracker_shortcuter(mode="distance")
-            elif current_algo == "Backtracker - Shortcutter w/ Metric":
-                self.backtracker_shortcuter(mode="metric")
-            else:
-                self.random_move_nometric()
-            
-            if self.snake.found_all == True:
-                print "FOUND THEM ALL, WE'RE DONE!"
-                self.context.MW.stop_button.setEnabled(False)
-                self.quitting = True
-            elif self.snake.found_finish == True:
-                print "TOTAL TIME TO FINISH: %s seconds" % self.context.clock_timer
-                self.context.MW.stop_button.setEnabled(False)
-                self.quitting = True
+        #Get current algo, default to random
+        current_algo_item = self.context.MW.algoList.currentItem()
+        if current_algo_item.text() == "Pathfinder 1":
+            self.pathfinder_1()
+
+        else:
+            while self.quitting is False:
+                if self.context.start_grid == None:
+                    print "NO START POINT SET!"
+                    self.quitting = True
+                    #unlock grid
+                    self.context.MW.MainWindow.emit(SIGNAL("unlockGrid"))
+                    continue
+                elif self.context.finish_grid is None and self.context.total_objectives == 0:
+                    print "NO FINISH GRID OR OBJECTIVES SET, YOU MUST SET SOMETHING!"
+                    self.quitting = True
+                    #unlock grid
+                    self.context.MW.MainWindow.emit(SIGNAL("unlockGrid"))
+                    continue
+                sleep(float(TICKRATE_MS/float(1000)))
+                #Update clock if necessary
+                if time() - self.last_clock_update >= 1:
+                    self.last_clock_update = time()
+                    self.context.updateClock()
+
+
+
+                try:
+                    current_algo = current_algo_item.text()
+                except:
+                    current_algo = ""
+
+                if current_algo == "Random - Prefer Unexplored":
+                    self.random_move_nometric_prefernew()
+                elif current_algo == "Backtrack with memory - straight until obstructed":
+                    self.backtracker()
+                elif current_algo == "Backtracker - Shortcutter":
+                    self.backtracker_shortcuter()
+                elif current_algo == "Backtracker - Shortcutter - Prefer largest cut":
+                    self.backtracker_shortcuter(mode="distance")
+                elif current_algo == "Backtracker - Shortcutter w/ Metric":
+                    self.backtracker_shortcuter(mode="metric")
+                else:
+                    self.random_move_nometric()
+
+                if self.snake.found_all == True:
+                    print "FOUND THEM ALL, WE'RE DONE!"
+                    self.context.MW.MainWindow.emit(QtCore.SIGNAL("LockControls"), False)
+                    #self.context.MW.start_button.setEnabled(True)
+                    self.quitting = True
+                elif self.snake.found_finish == True:
+                    print "TOTAL TIME TO FINISH: %s seconds" % self.context.clock_timer
+                    self.context.MW.MainWindow.emit(QtCore.SIGNAL("LockControls"), False)
+                    #self.context.MW.start_button.setEnabled(True)
+                    self.quitting = True
+
+
         
         
     def random_move_nometric(self):
@@ -253,6 +262,7 @@ class RunInstance(threading.Thread):
                             distances = {}
                             #Now I wish I paid more attention in math class... :(
                             for grid in possible_shortcuts:
+                                #Shouldnt these be swapped? Shouldn't t1 use index 0 of grid and last_decision_point since its the x val?
                                 #first term, x/columns
                                 t1 = (last_decision_point[1] - grid[1])**2
                                 #second term, y/rows
@@ -331,29 +341,133 @@ class RunInstance(threading.Thread):
         #Make our move and update our direction of travel
         self.snake.direction = move_direction
         self.snake.moveSnake(our_move)
-    
-    def pathfinder(self):
-        #I'm conflicted as to how to approach the pathfinder algo.
-        #My first idea is to basically search out every single move from our current position, to a maximum depth that can be configured.
-        #This would basically tell the snake to "imagine" going off in a random direction and each time it comes to a decision point,
-        #take the first one and so on until it reaches the configured maximum depth, then go back to the last decision point and follow the
-        #second available path to the maximum depth and so on and so forth until all possible paths are explored to the maximum depth. We
-        #then end up with a path chain and by simply choosing the shortest path that ended at the objective we should have our solution.
-        #
-        #If none ended at the objective we take the top X shortest chains and extend each of those to a total size of 2 times the maximum depth.
-        #We can maybe do this a number of times if we still don't end up with the objective, sort of hopping along. Configurable options are
-        #max_recusions and recursion_stack_size to control the number of times we retry until we find the objective and the number of shortest
-        #chains we take each retry, respective.
-        #
-        #This idea is extremely computationally expensive but should produce the best result in terms of shortest path (as long as the maximum
-        #depth is set high enough to find it on the first try). What will be interesting is to see how well it performs when it reaches the
-        #maximum depth and has to reextend a couple times.
-        #
-        #Unfortunately I can't really think of another way. There are some minor shortcuts we can take to narrow down the search, like excluding
-        #paths with lengths that are greater than the shortest already-found path to the objective, but its still going to be brute-forcing it
-        #for the most part. 
-        pass
-    
+
+    #Only for start-to-finish grids
+    def pathfinder_1(self):
+        self.snake_direction = "START"
+        self.successful_paths = []
+        self.current_path_chain = []
+        self.decision_points = OD()
+        print "%s Testing possible paths..." % str(self.snake.current_grid)
+
+        while self.quitting is False:
+            raw_possible_moves = self.snake.getMoves()
+            white_blocks = {}
+            finish_blocks = {}
+
+            #Check if this was a decision point, otherwise get a list of moves
+            #print self.snake.current_grid
+            #print self.decision_points.keys()
+            if self.snake.current_grid in self.decision_points.keys():
+                print "Yeah you shoulda fixed this "
+                for k,v in self.decision_points.iteritems(): print "%s: %s" % (k,v)
+                print "------------------------"
+                #self.quitting = True
+
+
+            for direction, move in raw_possible_moves.iteritems():
+                if move[0] is not None:
+                    #Is this the finish?
+                    if move[1] == 6:
+                        finish_blocks[direction] = move[0]
+
+                    elif move[1] == 0:
+                        white_blocks[direction] = move[0]
+
+            #Remove moves that reverse our direction
+            if len(self.current_path_chain)> 0 and len(white_blocks) > 0:
+                for direction, grid in white_blocks.iteritems():
+                    if grid == self.current_path_chain[-1]:
+                        del(white_blocks[direction])
+                        break
+
+            #We hit a dead end (wall or our own path)
+            #We just go back to the last decision point and explore that
+            if (len(white_blocks) == 0 or len(finish_blocks) > 0):
+                #Did we finish at least?
+                if len(finish_blocks) > 0:
+                    #DONE!
+                    self.current_path_chain.append(self.snake.current_grid)
+                    self.current_path_chain.append(finish_blocks.values()[0])
+                    print "%s Found the finish with chain size %s" % (str(self.snake.current_grid), len(self.current_path_chain))
+                    self.successful_paths.append(self.current_path_chain)
+                else:
+                    print "%s Hit a dead end!" % str(self.snake.current_grid)
+
+                if len(self.successful_paths) > 0 and len(self.current_path_chain) > len(sorted(self.successful_paths, key=lambda path: len(path))[0]):
+                    print "PASS"
+
+                #now go back to last decision point
+                #Pull the last decision point.
+                print len(self.current_path_chain)
+                if len(self.decision_points) > 0:
+                    #We must remember to reinsert this data later if there are still more decision points
+                    dp_grid, dpoints = self.decision_points.popitem(last=True)
+                    print "%s Going back to previous decision point at %s..." % (str(self.snake.current_grid), dp_grid)
+                    #Cut our current path chain just after that point
+                    try:
+                        dp_grid_index = self.current_path_chain.index(dp_grid)
+                    except:
+                        print "==================================="
+                        print "this error again..."
+                        print self.current_path_chain
+                        print dp_grid
+                        self.quitting = True
+                        print "-------------------------------------"
+                    self.current_path_chain = self.current_path_chain[:dp_grid_index+1]
+                    #Take the next decision point
+                    self.snake_direction, self.snake.current_grid = dpoints.popitem()
+                    #Reinsert the data if there are still more decision points
+                    if len(dpoints) > 0:
+                        self.decision_points[dp_grid] = dpoints
+                    print len(self.current_path_chain)
+                    continue
+                else:
+                    print "%s No more decision points, hit the end." % str(self.snake.current_grid)
+                    break
+            #Current path exceeds smallest successful path (if there is one)
+            elif len(self.successful_paths) > 0 and len(self.current_path_chain) > len(sorted(self.successful_paths, key=lambda path: len(path))[0]):
+                print "Current chain length longer than previously successful chains. Stopping search in this branch."
+
+            #Starting off or hit a wall
+            elif self.snake_direction == "START" or white_blocks.has_key(self.snake_direction) is False:
+                self.snake_direction = white_blocks.keys()[0] # Could instead pull the val that is in our intended direction
+                our_move = white_blocks.pop(self.snake_direction)
+                print "%s Changing direction to %s" % (str(self.snake.current_grid), self.snake_direction)
+            #Unobstructed, keep going same direction
+            else:
+                our_move = white_blocks.pop(self.snake_direction)
+
+            #if we have any excess possible move choices we create a decision point
+            if len(white_blocks) > 0:
+                print "%s At decision point, possible moves still: " % str(self.snake.current_grid)
+                for k,v in white_blocks.iteritems(): print "%s: %s" % (k,v)
+                dp = white_blocks #Might need to copy instead of assign. We'll see how it goes.
+                self.decision_points[self.snake.current_grid] = dp
+
+            self.current_path_chain.append(self.snake.current_grid)
+            self.snake.current_grid = our_move
+            #self.quitting = True
+
+        if len(self.successful_paths) > 0:
+            shortest_path = sorted(self.successful_paths, key=lambda chain: len(chain))[0]
+            self.snake.current_grid = shortest_path.pop(0)
+            print "Done searching paths, found %s paths total." % len(self.successful_paths)
+            print "Shortest path was %s in length. Running that path now..." % len(shortest_path)
+            self.quitting = False
+            for grid in shortest_path:
+                if self.quitting is True:
+                    print "Quit called"
+                    break
+                self.snake.moveSnake(grid)
+
+                sleep(float(TICKRATE_MS/float(1000)))
+        else:
+            print "Could not find any solutions to the finish starting from %s" % str(self.snake.start_grid)
+
+        print "Pathfinder Finished!"
+
+
     def pathfinder_simple(self):
         #So I stopped working on this whole thing for like 9 months and now I'm coming into this cold, completely confused. The above idea sounds
         #interesting but I think it misses a more basic premise: How can we design a pathfinder algo based on very simple rules. Sure, throwing
@@ -383,25 +497,29 @@ class Snake(object):
         moves = {}
         
         try:
-            moves["up"] = [(self.current_grid[0]-1, self.current_grid[1]), self.grid_item_tracker[(self.current_grid[0]-1, self.current_grid[1])]]
+            upgrid = (self.current_grid[0]-1, self.current_grid[1])
+            moves["up"] = [upgrid, self.grid_item_tracker[upgrid]]
             if moves["up"][1] == 2: #Roadblock
                 moves["up"] = [None, None]
         except:
             moves["up"] = [None, None]
         try:
-            moves["down"] = [(self.current_grid[0]+1, self.current_grid[1]), self.grid_item_tracker[(self.current_grid[0]+1, self.current_grid[1])]]
+            downgrid = (self.current_grid[0]+1, self.current_grid[1])
+            moves["down"] = [downgrid, self.grid_item_tracker[downgrid]]
             if moves["down"][1] == 2: #Roadblock
                 moves["down"] = [None, None]
         except:
             moves["down"] = [None, None]
         try:
-            moves["left"] = [(self.current_grid[0], self.current_grid[1]-1), self.grid_item_tracker[(self.current_grid[0], self.current_grid[1]-1)]]
+            leftgrid = (self.current_grid[0], self.current_grid[1]-1)
+            moves["left"] = [leftgrid, self.grid_item_tracker[leftgrid]]
             if moves["left"][1] == 2: #Roadblock
                 moves["left"] = [None, None]
         except:
             moves["left"] = [None, None]
         try:
-            moves["right"] = [(self.current_grid[0], self.current_grid[1]+1), self.grid_item_tracker[(self.current_grid[0], self.current_grid[1]+1)]]
+            rightgrid = (self.current_grid[0], self.current_grid[1]+1)
+            moves["right"] = [rightgrid, self.grid_item_tracker[rightgrid]]
             if moves["right"][1] == 2: #Roadblock
                 moves["right"] = [None, None]
         except:
@@ -432,8 +550,6 @@ class Snake(object):
         
         #Emit signal to update number of moves
         self.context.MW.MainWindow.emit(SIGNAL("snakeMoved"))
-        
-        
         
     
     def foundObjective(self):
@@ -487,6 +603,12 @@ class uiFunctions(object):
         minutes = self.clock_timer/60
         seconds = self.clock_timer%60
         self.MW.time_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#000000;\">%02d:%02d</span></p></body></html>" % (minutes, seconds))
+    
+    
+    #Non-reverable for now. For the snake minigame
+    def invertGridColors(self):
+        self.grid_item_states[0] = QtGui.QBrush(QtGui.QColor(0, 0, 0, 255))
+        #In the future it is simple to just to a XOR operation on the color value to obtain its inverse (255->0 and vice-versa)
     
     
     def incrementMoveCount(self):
@@ -633,13 +755,12 @@ class uiFunctions(object):
     
     def startButtonPressed(self):
         self.updateSpeed()
-        
+        self.lock_controls(True)
         snake_instance = Snake(self.start_grid, self.grid_item_states, self.MW.game_grid, self.grid_item_tracker, self)
         self.game_instance_thread = RunInstance(snake_instance, self)
         self.game_instance_thread.start()
         self.grid_locked = True
-        self.MW.start_button.setEnabled(False)
-        self.MW.stop_button.setEnabled(True)
+
         
         if self.loadstate is None:
             self.setLoadState()
@@ -649,12 +770,18 @@ class uiFunctions(object):
         self.game_instance_thread.join()
         self.start_grid = self.game_instance_thread.snake.current_grid
         self.grid_item_tracker[self.game_instance_thread.snake.current_grid] = 3
-        self.MW.start_button.setEnabled(True)
-        self.MW.stop_button.setEnabled(False)
+        self.lock_controls(False)
         if quiet == False:
             print "ROUND STOPPED"
     
-    
+    def lock_controls(self, locked):
+        self.MW.stop_button.setEnabled(locked)
+        self.MW.start_button.setDisabled(locked)
+        self.MW.reset_button.setDisabled(locked)
+        self.MW.clear_button.setDisabled(locked)
+        #self.MW.speed_selector.setDisabled(locked)
+        self.MW.algoList.setDisabled(locked)
+
     def setLoadState(self):
         self.loadstate = {}
         self.loadstate["start_grid"] = self.start_grid
@@ -729,6 +856,7 @@ class uiFunctions(object):
         self.total_objectives = 0
         #Load the grid
         for grid, mode in loadstate["game_item_tracker"].iteritems():
+            if grid is None: continue
             #change any explored boxes to unexplored
             if mode == 5:
                 mode = 0

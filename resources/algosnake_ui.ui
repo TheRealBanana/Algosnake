@@ -417,6 +417,7 @@
     <property name="title">
      <string>&amp;File</string>
     </property>
+    <addaction name="action_New"/>
     <addaction name="action_Open"/>
     <addaction name="action_Save"/>
     <addaction name="separator"/>
@@ -428,15 +429,35 @@
    <property name="text">
     <string>&amp;Load Grid...</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
+   </property>
   </action>
   <action name="action_Save">
    <property name="text">
     <string>&amp;Save Grid As...</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
   </action>
   <action name="action_Quit">
    <property name="text">
     <string>&amp;Quit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+W</string>
+   </property>
+  </action>
+  <action name="action_New">
+   <property name="text">
+    <string>&amp;New Grid</string>
+   </property>
+   <property name="toolTip">
+    <string>Create a new grid</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+N</string>
    </property>
   </action>
  </widget>
@@ -567,6 +588,22 @@
     <hint type="destinationlabel">
      <x>766</x>
      <y>795</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>action_New</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>520</x>
+     <y>448</y>
     </hint>
    </hints>
   </connection>

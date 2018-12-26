@@ -25,7 +25,6 @@ def main():
     app = QtGui.QApplication(sys.argv)
     MainWindow = SnakeMainWindow()
     ui = Algosnake_MainWindow()
-    ui.setupUi(MainWindow)
     MainWindow.ui = ui
     ui.setupUi(MainWindow)
     MainWindow.show()
