@@ -46,12 +46,14 @@ class RunInstance(threading.Thread):
                     self.quitting = True
                     #unlock grid
                     self.context.MW.MainWindow.emit(SIGNAL("unlockGrid"))
+                    self.context.MW.MainWindow.emit(SIGNAL("LockControls"), False)
                     continue
                 elif self.context.finish_grid is None and self.context.total_objectives == 0:
                     print "NO FINISH GRID OR OBJECTIVES SET, YOU MUST SET SOMETHING!"
                     self.quitting = True
                     #unlock grid
                     self.context.MW.MainWindow.emit(SIGNAL("unlockGrid"))
+                    self.context.MW.MainWindow.emit(SIGNAL("LockControls"), False)
                     continue
                 sleep(float(TICKRATE_MS/float(1000)))
                 #Update clock if necessary
@@ -342,15 +344,45 @@ class RunInstance(threading.Thread):
         self.snake.direction = move_direction
         self.snake.moveSnake(our_move)
 
+
+    def go_to_last_decision_point(self):
+        #Pull the last decision point.
+        if len(self.decision_points) > 0:
+            #We must remember to reinsert this data later if there are still more decision points
+            dp_grid, dpoints = self.decision_points.pop(-1)
+            print "%s Going back to previous decision point at %s..." % (str(self.snake.current_grid), dp_grid)
+            #Cut our current path chain just after that point
+            try:
+                dp_grid_index = self.current_path_chain.index(dp_grid)
+            except:
+                print "==================================="
+                print "this error again..."
+                print self.current_path_chain
+                print self.snake.current_grid
+                print dp_grid
+                self.quitting = True
+                print "-------------------------------------"
+            self.current_path_chain = self.current_path_chain[:dp_grid_index+1]
+            #Take the next decision point
+            self.snake_direction, self.snake.current_grid = dpoints.popitem()
+            #Reinsert the data if there are still more decision points
+            if len(dpoints) > 0:
+                self.decision_points.append((dp_grid, dpoints))
+            print len(self.current_path_chain)
+            return True
+        else:
+            print "%s No more decision points, hit the end." % str(self.snake.current_grid)
+            return False
     #Only for start-to-finish grids
     def pathfinder_1(self):
         self.snake_direction = "START"
         self.successful_paths = []
         self.current_path_chain = []
-        self.decision_points = OD()
+        self.decision_points = []
         print "%s Testing possible paths..." % str(self.snake.current_grid)
 
         while self.quitting is False:
+            print self.snake.current_grid
             raw_possible_moves = self.snake.getMoves()
             white_blocks = {}
             finish_blocks = {}
@@ -358,15 +390,17 @@ class RunInstance(threading.Thread):
             #Check if this was a decision point, otherwise get a list of moves
             #print self.snake.current_grid
             #print self.decision_points.keys()
-            if self.snake.current_grid in self.decision_points.keys():
+            if self.snake.current_grid in self.decision_points:
                 print "Yeah you shoulda fixed this "
-                for k,v in self.decision_points.iteritems(): print "%s: %s" % (k,v)
+                for k,v in enumerate(self.decision_points): print "%s: %s" % (k,v)
                 print "------------------------"
                 #self.quitting = True
 
 
             for direction, move in raw_possible_moves.iteritems():
                 if move[0] is not None:
+                    if move[0] in self.current_path_chain:
+                        continue
                     #Is this the finish?
                     if move[1] == 6:
                         finish_blocks[direction] = move[0]
@@ -394,40 +428,20 @@ class RunInstance(threading.Thread):
                 else:
                     print "%s Hit a dead end!" % str(self.snake.current_grid)
 
-                if len(self.successful_paths) > 0 and len(self.current_path_chain) > len(sorted(self.successful_paths, key=lambda path: len(path))[0]):
-                    print "PASS"
-
                 #now go back to last decision point
-                #Pull the last decision point.
-                print len(self.current_path_chain)
-                if len(self.decision_points) > 0:
-                    #We must remember to reinsert this data later if there are still more decision points
-                    dp_grid, dpoints = self.decision_points.popitem(last=True)
-                    print "%s Going back to previous decision point at %s..." % (str(self.snake.current_grid), dp_grid)
-                    #Cut our current path chain just after that point
-                    try:
-                        dp_grid_index = self.current_path_chain.index(dp_grid)
-                    except:
-                        print "==================================="
-                        print "this error again..."
-                        print self.current_path_chain
-                        print dp_grid
-                        self.quitting = True
-                        print "-------------------------------------"
-                    self.current_path_chain = self.current_path_chain[:dp_grid_index+1]
-                    #Take the next decision point
-                    self.snake_direction, self.snake.current_grid = dpoints.popitem()
-                    #Reinsert the data if there are still more decision points
-                    if len(dpoints) > 0:
-                        self.decision_points[dp_grid] = dpoints
-                    print len(self.current_path_chain)
+                if self.go_to_last_decision_point() is True:
                     continue
                 else:
-                    print "%s No more decision points, hit the end." % str(self.snake.current_grid)
                     break
+
             #Current path exceeds smallest successful path (if there is one)
             elif len(self.successful_paths) > 0 and len(self.current_path_chain) > len(sorted(self.successful_paths, key=lambda path: len(path))[0]):
                 print "Current chain length longer than previously successful chains. Stopping search in this branch."
+                if self.go_to_last_decision_point() is True:
+                    continue
+                else:
+                    break
+
 
             #Starting off or hit a wall
             elif self.snake_direction == "START" or white_blocks.has_key(self.snake_direction) is False:
@@ -443,7 +457,7 @@ class RunInstance(threading.Thread):
                 print "%s At decision point, possible moves still: " % str(self.snake.current_grid)
                 for k,v in white_blocks.iteritems(): print "%s: %s" % (k,v)
                 dp = white_blocks #Might need to copy instead of assign. We'll see how it goes.
-                self.decision_points[self.snake.current_grid] = dp
+                self.decision_points.append((self.snake.current_grid, dp))
 
             self.current_path_chain.append(self.snake.current_grid)
             self.snake.current_grid = our_move
