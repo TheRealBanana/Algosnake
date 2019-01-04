@@ -1,7 +1,7 @@
 ##############################
 ##  Algosnake UI Functions  ##
 ##############################
-from PyQt4 import QtGui, QtCore
+from PyQt4 import QtGui, QtCore, Qt
 from time import time, sleep
 from random import randint
 from PyQt4.QtCore import SIGNAL
@@ -28,6 +28,7 @@ class RunInstance(threading.Thread):
         self.past_moves = None
         self.decision_points = None
         self.backtracking = False
+        self.last_hl_grid = None
         
         
         super(RunInstance, self).__init__()
@@ -36,7 +37,7 @@ class RunInstance(threading.Thread):
     def run(self):
         #Get current algo, default to random
         current_algo_item = self.context.MW.algoList.currentItem()
-        if current_algo_item.text() == "Pathfinder 1":
+        if current_algo_item.text() == "Pathfinder 1 (Depth-first)":
             self.pathfinder_1()
 
         else:
@@ -345,12 +346,21 @@ class RunInstance(threading.Thread):
         self.snake.moveSnake(our_move)
 
 
+
+    #Helper functions for pathfinder
+    def hl_move(self, grid):
+        old_grid_item = self.snake.game_grid.item(*self.last_hl_grid)
+        new_grid_item = self.snake.game_grid.item(*grid)
+        new_grid_item.setBackground(self.snake.grid_item_states[5])
+        old_grid_item.setBackground(self.snake.grid_item_states[0])
+        self.last_hl_grid = grid
+
     def go_to_last_decision_point(self):
         #Pull the last decision point.
         if len(self.decision_points) > 0:
             #We must remember to reinsert this data later if there are still more decision points
-            dp_grid, dpoints = self.decision_points.pop(-1)
-            print "%s Going back to previous decision point at %s..." % (str(self.snake.current_grid), dp_grid)
+            dp_grid, dpoints = self.decision_points.pop(0)
+#            print "%s Going back to previous decision point at %s..." % (str(self.snake.current_grid), dp_grid)
             #Cut our current path chain just after that point
             try:
                 dp_grid_index = self.current_path_chain.index(dp_grid)
@@ -358,44 +368,43 @@ class RunInstance(threading.Thread):
                 print "==================================="
                 print "this error again..."
                 print self.current_path_chain
+                print self.decision_points
                 print self.snake.current_grid
                 print dp_grid
                 self.quitting = True
                 print "-------------------------------------"
+                return
             self.current_path_chain = self.current_path_chain[:dp_grid_index+1]
             #Take the next decision point
             self.snake_direction, self.snake.current_grid = dpoints.popitem()
             #Reinsert the data if there are still more decision points
             if len(dpoints) > 0:
-                self.decision_points.append((dp_grid, dpoints))
-            print len(self.current_path_chain)
+                self.decision_points.insert(0, (dp_grid, dpoints))
+            else:
+                #If this was the last possible move in this decision point we go back one step with our safe bookmark
+                if len(self.decision_points) > 0:
+                    self.last_decision_point = self.decision_points[0]
             return True
         else:
             print "%s No more decision points, hit the end." % str(self.snake.current_grid)
             return False
     #Only for start-to-finish grids
-    def pathfinder_1(self):
+    #Can search depth first (0), breadth first (1), or random (2)
+    #hl mode will show where the algo is currently at by highlighting its current grid
+    def pathfinder_1(self, hlmode=True):
         self.snake_direction = "START"
         self.successful_paths = []
         self.current_path_chain = []
         self.decision_points = []
+        self.last_decision_point = None
+        self.last_hl_grid = self.snake.current_grid
         print "%s Testing possible paths..." % str(self.snake.current_grid)
 
         while self.quitting is False:
-            print self.snake.current_grid
+            self.current_path_chain.append(self.snake.current_grid)
             raw_possible_moves = self.snake.getMoves()
             white_blocks = {}
             finish_blocks = {}
-
-            #Check if this was a decision point, otherwise get a list of moves
-            #print self.snake.current_grid
-            #print self.decision_points.keys()
-            if self.snake.current_grid in self.decision_points:
-                print "Yeah you shoulda fixed this "
-                for k,v in enumerate(self.decision_points): print "%s: %s" % (k,v)
-                print "------------------------"
-                #self.quitting = True
-
 
             for direction, move in raw_possible_moves.iteritems():
                 if move[0] is not None:
@@ -423,10 +432,20 @@ class RunInstance(threading.Thread):
                     #DONE!
                     self.current_path_chain.append(self.snake.current_grid)
                     self.current_path_chain.append(finish_blocks.values()[0])
-                    print "%s Found the finish with chain size %s" % (str(self.snake.current_grid), len(self.current_path_chain))
-                    self.successful_paths.append(self.current_path_chain)
-                else:
-                    print "%s Hit a dead end!" % str(self.snake.current_grid)
+                    if self.current_path_chain not in self.successful_paths:
+                        #See if its any better than our current path
+                        if len(self.successful_paths) > 0 and len(self.current_path_chain) > len(sorted(self.successful_paths, key=lambda path: len(path))[0])-1:
+                            pass
+                        else:
+                            print "%s Found the finish with chain size %s" % (str(self.snake.current_grid), len(self.current_path_chain))
+                            self.successful_paths.append(self.current_path_chain)
+                            #Set a bookmark here as we branch out to find shorter paths
+                            if len(self.decision_points) > 0:
+                                self.last_decision_point = self.decision_points[0]
+                    else:
+                        print "Already found this path? How the heck."
+#                else:
+#                    print "%s Hit a dead end!" % str(self.snake.current_grid)
 
                 #now go back to last decision point
                 if self.go_to_last_decision_point() is True:
@@ -435,8 +454,12 @@ class RunInstance(threading.Thread):
                     break
 
             #Current path exceeds smallest successful path (if there is one)
-            elif len(self.successful_paths) > 0 and len(self.current_path_chain) > len(sorted(self.successful_paths, key=lambda path: len(path))[0]):
-                print "Current chain length longer than previously successful chains. Stopping search in this branch."
+            elif len(self.successful_paths) > 0 and len(self.current_path_chain) >= len(sorted(self.successful_paths, key=lambda path: len(path))[0])-1:
+                #print "Current chain length longer than previously successful chains. Stopping search in this branch."
+                #Need to delete all decision points made since our last bookmark
+                if len(self.decision_points) > 0 and self.last_decision_point in self.decision_points:
+                    last_dp_index = self.decision_points.index(self.last_decision_point)
+                    self.decision_points = self.decision_points[last_dp_index:]
                 if self.go_to_last_decision_point() is True:
                     continue
                 else:
@@ -447,21 +470,27 @@ class RunInstance(threading.Thread):
             elif self.snake_direction == "START" or white_blocks.has_key(self.snake_direction) is False:
                 self.snake_direction = white_blocks.keys()[0] # Could instead pull the val that is in our intended direction
                 our_move = white_blocks.pop(self.snake_direction)
-                print "%s Changing direction to %s" % (str(self.snake.current_grid), self.snake_direction)
+#                print "%s Changing direction to %s" % (str(self.snake.current_grid), self.snake_direction)
             #Unobstructed, keep going same direction
             else:
                 our_move = white_blocks.pop(self.snake_direction)
 
             #if we have any excess possible move choices we create a decision point
             if len(white_blocks) > 0:
-                print "%s At decision point, possible moves still: " % str(self.snake.current_grid)
-                for k,v in white_blocks.iteritems(): print "%s: %s" % (k,v)
                 dp = white_blocks #Might need to copy instead of assign. We'll see how it goes.
-                self.decision_points.append((self.snake.current_grid, dp))
+                self.decision_points.insert(0, (self.snake.current_grid, dp))
 
-            self.current_path_chain.append(self.snake.current_grid)
             self.snake.current_grid = our_move
-            #self.quitting = True
+
+            #If we haven't found the finish, keep setting a bookmark
+            if len(self.successful_paths) == 0 and len(self.decision_points) > 0:
+                self.last_decision_point = self.decision_points[0]
+
+            if hlmode:
+                self.hl_move(our_move)
+                sleep(float(TICKRATE_MS/float(1000)))
+
+
 
         if len(self.successful_paths) > 0:
             shortest_path = sorted(self.successful_paths, key=lambda chain: len(chain))[0]
@@ -474,7 +503,7 @@ class RunInstance(threading.Thread):
                     print "Quit called"
                     break
                 self.snake.moveSnake(grid)
-
+                Qt.QApplication.processEvents()
                 sleep(float(TICKRATE_MS/float(1000)))
         else:
             print "Could not find any solutions to the finish starting from %s" % str(self.snake.start_grid)
@@ -586,7 +615,6 @@ class uiFunctions(object):
         self.grid_item_tracker = {}
         self.grid_item_states = {}
         self.objective_grids = [] #So we don't have to search for them every time set the finish grid and have to reset them all
-        self.finish_grids = [] #Same idea for finish grids
         self.grid_locked = False
         self.grid_size = (25, 36)
         self.start_grid = None
@@ -651,6 +679,7 @@ class uiFunctions(object):
                 self.grid_item_tracker[(row,column)] = 0
                 
         self.start_grid = None
+        self.finish_grid = None
         #Reset time, found, and moves count to zero
         self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0/0</span></p></body></html>")
         self.MW.time_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#000000;\">00:00</span></p></body></html>")
@@ -658,7 +687,6 @@ class uiFunctions(object):
         self.clock_timer = 0
         self.total_objectives = 0
         self.objective_grids = []
-        self.finish_grids = []
         self.total_moves = 0
         self.loadstate = None
         #Finally unlock the grid
@@ -681,7 +709,7 @@ class uiFunctions(object):
             else:
                 old_grid_mode = self.grid_item_tracker[grid]
             #Decrement objective if it was set
-            if old_grid_mode == 1:
+            if old_grid_mode == 1 and grid in self.objective_grids:
                 self.total_objectives -= 1
                 self.objective_grids.remove(grid)
                 self.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">0/%s</span></p></body></html>" % self.total_objectives)
@@ -874,7 +902,7 @@ class uiFunctions(object):
             #change any explored boxes to unexplored
             if mode == 5:
                 mode = 0
-            self.setGridItem(grid, mode)
+            self.setGridItem(grid, mode, init_mode=True)
         
         self.setLoadState()
         #Unlock the grid
