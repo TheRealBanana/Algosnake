@@ -230,6 +230,7 @@ class Algosnake_MainWindow(object):
         self.addAlgo("Backtracker - Shortcutter - Prefer largest cut")
         self.addAlgo("Backtracker - Shortcutter w/ Metric")
         self.addAlgo("Pathfinder 1 (Depth-first)")
+        self.addAlgo("Pathfinder 1 (Depth-first w/metric)")
         
 
     def loadSnakeMinigame(self):

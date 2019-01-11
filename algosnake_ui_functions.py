@@ -38,7 +38,9 @@ class RunInstance(threading.Thread):
         #Get current algo, default to random
         current_algo_item = self.context.MW.algoList.currentItem()
         if current_algo_item.text() == "Pathfinder 1 (Depth-first)":
-            self.pathfinder_1()
+            self.pathfinder_1(metric=False)
+        elif current_algo_item.text() == "Pathfinder 1 (Depth-first w/metric)":
+            self.pathfinder_1(metric=True)
 
         else:
             while self.quitting is False:
@@ -375,8 +377,14 @@ class RunInstance(threading.Thread):
                 print "-------------------------------------"
                 return
             self.current_path_chain = self.current_path_chain[:dp_grid_index+1]
-            #Take the next decision point
-            self.snake_direction, self.snake.current_grid = dpoints.popitem()
+            #Take the next decision point or closer if metric is enabled
+            if self.metric is True:
+                #For brevity's sake
+                g2 = self.snake.context.finish_grid
+                self.snake_direction = sorted(dpoints.items(), key=lambda (_,g1): sqrt(( (g2[0]-g1[0])**2 )+( (g2[1]-g1[1])**2) ))[0][0]
+                self.snake.current_grid = dpoints.pop(self.snake_direction)
+            else:
+                self.snake_direction, self.snake.current_grid = dpoints.popitem()
             #Reinsert the data if there are still more decision points
             if len(dpoints) > 0:
                 self.decision_points.insert(0, (dp_grid, dpoints))
@@ -389,15 +397,19 @@ class RunInstance(threading.Thread):
             print "%s No more decision points, hit the end." % str(self.snake.current_grid)
             return False
     #Only for start-to-finish grids
-    #Can search depth first (0), breadth first (1), or random (2)
+    #Metric=True will use follow the path that gets closer to the finish
     #hl mode will show where the algo is currently at by highlighting its current grid
-    def pathfinder_1(self, hlmode=True):
+    #This slows down the search considerably however
+    def pathfinder_1(self, metric=False, hlmode=True):
         self.snake_direction = "START"
         self.successful_paths = []
         self.current_path_chain = []
         self.decision_points = []
+        self.max_chain_length = 1000 #How long before we just stop searching this main branch?
         self.last_decision_point = None
         self.last_hl_grid = self.snake.current_grid
+        self.metric = metric
+
         print "%s Testing possible paths..." % str(self.snake.current_grid)
 
         while self.quitting is False:
@@ -405,6 +417,12 @@ class RunInstance(threading.Thread):
             raw_possible_moves = self.snake.getMoves()
             white_blocks = {}
             finish_blocks = {}
+
+            if len(self.current_path_chain) > self.max_chain_length:
+                if self.go_to_last_decision_point() is True:
+                    continue
+                else:
+                    break
 
             for direction, move in raw_possible_moves.iteritems():
                 if move[0] is not None:
@@ -424,6 +442,7 @@ class RunInstance(threading.Thread):
                         del(white_blocks[direction])
                         break
 
+
             #We hit a dead end (wall or our own path)
             #We just go back to the last decision point and explore that
             if (len(white_blocks) == 0 or len(finish_blocks) > 0):
@@ -437,7 +456,7 @@ class RunInstance(threading.Thread):
                         if len(self.successful_paths) > 0 and len(self.current_path_chain) > len(sorted(self.successful_paths, key=lambda path: len(path))[0])-1:
                             pass
                         else:
-                            print "%s Found the finish with chain size %s" % (str(self.snake.current_grid), len(self.current_path_chain))
+                            print "%s Found the finish with chain size %s" % (str(self.snake.current_grid), len(self.current_path_chain)-1)
                             self.successful_paths.append(self.current_path_chain)
                             #Set a bookmark here as we branch out to find shorter paths
                             if len(self.decision_points) > 0:
@@ -465,15 +484,17 @@ class RunInstance(threading.Thread):
                 else:
                     break
 
+            elif metric is True:
+                g2 = self.snake.context.finish_grid
+                self.snake_direction = sorted(white_blocks.items(), key=lambda (_,g1): sqrt(( (g2[0]-g1[0])**2 )+( (g2[1]-g1[1])**2) ))[0][0]
 
             #Starting off or hit a wall
             elif self.snake_direction == "START" or white_blocks.has_key(self.snake_direction) is False:
                 self.snake_direction = white_blocks.keys()[0] # Could instead pull the val that is in our intended direction
-                our_move = white_blocks.pop(self.snake_direction)
 #                print "%s Changing direction to %s" % (str(self.snake.current_grid), self.snake_direction)
-            #Unobstructed, keep going same direction
-            else:
-                our_move = white_blocks.pop(self.snake_direction)
+
+
+            our_move = white_blocks.pop(self.snake_direction)
 
             #if we have any excess possible move choices we create a decision point
             if len(white_blocks) > 0:
@@ -493,8 +514,10 @@ class RunInstance(threading.Thread):
 
 
         if len(self.successful_paths) > 0:
+            if hlmode: self.hl_move(self.snake.current_grid)
             shortest_path = sorted(self.successful_paths, key=lambda chain: len(chain))[0]
             self.snake.current_grid = shortest_path.pop(0)
+
             print "Done searching paths, found %s paths total." % len(self.successful_paths)
             print "Shortest path was %s in length. Running that path now..." % len(shortest_path)
             self.quitting = False
