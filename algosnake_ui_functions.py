@@ -549,8 +549,12 @@ class RunInstance(threading.Thread):
                 distance = sqrt( ((gself.coords[0]-self.snake.finish_grid[0])**2) + ((gself.coords[1]-self.snake.finish_grid[1])**2) )
                 gself.cost = gself.getLength() + distance
             def __eq__(gself, othergrid):
-                if othergrid.coords == gself.coords: return True
-                else: return False
+                if isinstance(othergrid, Grid):
+                    if othergrid.coords == gself.coords: return True
+                    else: return False
+                elif isinstance(othergrid, tuple):
+                    if othergrid == gself.coords: return True
+                    else: return False
             def extend(gself, newgridcoords):
                 return Grid(newgridcoords, prev=gself)
             def getLength(gself):
@@ -588,15 +592,22 @@ class RunInstance(threading.Thread):
 
                 #Add this grid's possible moves to the fringe set if we haven't explored them already
                 for coords in testgrid.getMoves():
+                    if coords in explored_set or coords in fringe_set:
+                        continue
                     newgrid = Grid(coords, prev=testgrid)
-                    if newgrid in explored_set or newgrid in fringe_set:
+                    #check if this path is worse than any solutions we currently have
+                    if len(finish_set) > 0 and newgrid.cost > sorted(finish_set, key=lambda p: p.getLength())[0].cost:
                         continue
                     if coords == finish_grid.coords:
                         finish_set.append(newgrid)
-                        print "Found finish at size %s" % str(newgrid.getLength()-1)
+                        finish_length = newgrid.getLength()-1
+                        print "Found finish at size %s" % finish_length
+                        #Filter our any fringe path ends that are already longer than this successful path
+                        fringe_set = list(filter(lambda p: p.getLength() < finish_length, fringe_set))
                     else:
                         fringe_set.append(newgrid)
-                    explored_set.append(testgrid)
+
+                explored_set.append(testgrid)
 
 
         #A* is finished! Lets show the shortest successful path if we have one.
@@ -608,7 +619,7 @@ class RunInstance(threading.Thread):
                 shortest_path.insert(0, prev.coords)
                 prev = prev.prev
             self.snake.current_grid = shortest_path.pop(0)
-            print "A* Finished! Found %s complete paths! (Shortest: %s)" % (len(finish_set), len(shortest_path))
+            print "A* Finished! Found %s complete paths after exploring %s grids (Efficiency rating with shortest path (%s long): %.2f%%)!" % (len(finish_set), len(explored_set), len(shortest_path), (float(len(shortest_path))/len(explored_set))*100)
             print "Running the shortest path now"
             self.quitting = False
             for grid in shortest_path:
