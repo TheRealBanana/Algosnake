@@ -562,9 +562,9 @@ class RunInstance(threading.Thread):
                 return length
             #Wrapper around Snake.getMoves() to make the code cleaner
             def getMoves(gself):
-                #We dont care about the direction or grid type, just the coords and no None moves
+                #We dont care about the direction or grid type, just the coords and filter out 'None' moves
                 self.snake.current_grid = gself.coords
-                return [grid[0] for _, grid in self.snake.getMoves().items() if grid[0] is not None]
+                return [grid for grid, _ in self.snake.getMoves().values() if grid is not None]
 
 
         fringe_set = []
@@ -573,13 +573,11 @@ class RunInstance(threading.Thread):
         start_grid = Grid(self.snake.start_grid)
         finish_grid = Grid(self.snake.finish_grid)
 
-        #Firstly lets add our starting grid to the list of explored grids
-        explored_set.append(Grid(self.snake.start_grid))
         #Populate our set of possible path chains from the start grid
-        fringe_set = [Grid(coords) for coords in start_grid.getMoves()]
-        #Loop through our fringe_set until empty and extend the top SAMPLE_SIZE sets with the lowest f(x) (path cost)
+        fringe_set = [start_grid]
+        #Loop through our fringe_set until empty and extend the top SAMPLE_SIZE sets with the lowest path cost
         while len(fringe_set) > 0 and self.quitting is False:
-            fringe_set = sorted(fringe_set, key=lambda path: path.cost) #Sort by cost
+            fringe_set = sorted(fringe_set, key=lambda path: path.cost)
             #Slice off the lowest SAMPLE_SIZE # of sets
             test_set = fringe_set[:SAMPLE_SIZE]
             fringe_set = fringe_set[SAMPLE_SIZE:]
@@ -595,7 +593,7 @@ class RunInstance(threading.Thread):
                         continue
                     if coords == finish_grid.coords:
                         finish_set.append(newgrid)
-                        print "Found finish at size %s" % newgrid.getLength()
+                        print "Found finish at size %s" % str(newgrid.getLength()-1)
                     else:
                         fringe_set.append(newgrid)
                     explored_set.append(testgrid)
@@ -703,14 +701,14 @@ class Snake(object):
         
     
     def foundObjective(self):
-        print "[Move %s] FOUND OBJ!" % self.context.total_moves
+        print "[Move %s] FOUND OBJ!" % str(self.context.total_moves+1)
         self.collected_objectives += 1
         self.context.MW.num_found_indicator.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt; font-weight:600; color:#ff0000;\">%s/%s</span></p></body></html>" % (self.collected_objectives, self.context.total_objectives))
         if self.collected_objectives == self.context.total_objectives:
             self.found_all = True
             
     def foundFinish(self):
-        print "[Move %s] FOUND FINISH!" % self.context.total_moves
+        print "[Move %s] FOUND FINISH!" % str(self.context.total_moves+1)
         self.found_finish = True
         
         
