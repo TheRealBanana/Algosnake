@@ -41,6 +41,8 @@ class RunInstance(threading.Thread):
             self.pathfinder_1(metric=False)
         elif current_algo_item.text() == "Pathfinder 1 (Depth-first w/metric)":
             self.pathfinder_1(metric=True)
+        elif current_algo_item.text() == "A*":
+            self.a_star()
 
         else:
             while self.quitting is False:
@@ -400,7 +402,7 @@ class RunInstance(threading.Thread):
     #Metric=True will use follow the path that gets closer to the finish
     #hl mode will show where the algo is currently at by highlighting its current grid
     #This slows down the search considerably however
-    def pathfinder_1(self, metric=False, hlmode=True):
+    def pathfinder_1(self, metric=False, hlmode=False):
         self.snake_direction = "START"
         self.successful_paths = []
         self.current_path_chain = []
@@ -485,7 +487,7 @@ class RunInstance(threading.Thread):
                     break
 
             elif metric is True:
-                g2 = self.snake.context.finish_grid
+                g2 = self.snake.finish_grid
                 self.snake_direction = sorted(white_blocks.items(), key=lambda (_,g1): sqrt(( (g2[0]-g1[0])**2 )+( (g2[1]-g1[1])**2) ))[0][0]
 
             #Starting off or hit a wall
@@ -534,19 +536,101 @@ class RunInstance(threading.Thread):
         print "Pathfinder Finished!"
 
 
-    def pathfinder_simple(self):
-        #So I stopped working on this whole thing for like 9 months and now I'm coming into this cold, completely confused. The above idea sounds
-        #interesting but I think it misses a more basic premise: How can we design a pathfinder algo based on very simple rules. Sure, throwing
-        #CPU at the problem and calculating every possible route produces good results, but simple is better.
-        #So to that end, this algo simply looks at the next move and takes it if it gets it closer to the obj. That's it.
-        
-        pass
+    def a_star(self):
+        #number of paths to test each round
+        SAMPLE_SIZE = 5
+        #Going to use a reverse singly linked list with these grid objects
+        class Grid(object):
+            def __init__(gself, coords, prev=None):
+                gself.coords = coords
+                gself.prev = prev
+                #Estimate our path cost: f(x) = g(x) + h(x)
+                #Shortest distance to finish from this grid: h(x)
+                distance = sqrt( ((gself.coords[0]-self.snake.finish_grid[0])**2) + ((gself.coords[1]-self.snake.finish_grid[1])**2) )
+                gself.cost = gself.getLength() + distance
+            def __eq__(gself, othergrid):
+                if othergrid.coords == gself.coords: return True
+                else: return False
+            def extend(gself, newgridcoords):
+                return Grid(newgridcoords, prev=gself)
+            def getLength(gself):
+                length = 1
+                prev = gself.prev
+                while prev is not None:
+                    prev = prev.prev
+                    length += 1
+                return length
+            #Wrapper around Snake.getMoves() to make the code cleaner
+            def getMoves(gself):
+                #We dont care about the direction or grid type, just the coords and no None moves
+                self.snake.current_grid = gself.coords
+                return [grid[0] for _, grid in self.snake.getMoves().items() if grid[0] is not None]
+
+
+        fringe_set = []
+        explored_set = []
+        finish_set = []
+        start_grid = Grid(self.snake.start_grid)
+        finish_grid = Grid(self.snake.finish_grid)
+
+        #Firstly lets add our starting grid to the list of explored grids
+        explored_set.append(Grid(self.snake.start_grid))
+        #Populate our set of possible path chains from the start grid
+        fringe_set = [Grid(coords) for coords in start_grid.getMoves()]
+        #Loop through our fringe_set until empty and extend the top SAMPLE_SIZE sets with the lowest f(x) (path cost)
+        while len(fringe_set) > 0 and self.quitting is False:
+            fringe_set = sorted(fringe_set, key=lambda path: path.cost) #Sort by cost
+            #Slice off the lowest SAMPLE_SIZE # of sets
+            test_set = fringe_set[:SAMPLE_SIZE]
+            fringe_set = fringe_set[SAMPLE_SIZE:]
+
+            for testgrid in test_set:
+                if self.quitting is True:
+                    break
+
+                #Add this grid's possible moves to the fringe set if we haven't explored them already
+                for coords in testgrid.getMoves():
+                    newgrid = Grid(coords, prev=testgrid)
+                    if newgrid in explored_set or newgrid in fringe_set:
+                        continue
+                    if coords == finish_grid.coords:
+                        finish_set.append(newgrid)
+                        print "Found finish at size %s" % newgrid.getLength()
+                    else:
+                        fringe_set.append(newgrid)
+                    explored_set.append(testgrid)
+
+
+        #A* is finished! Lets show the shortest successful path if we have one.
+        if len(finish_set) > 0:
+            shortest_path_end_node = sorted(finish_set, key=lambda path: path.getLength())[0]
+            shortest_path = [shortest_path_end_node.coords]
+            prev = shortest_path_end_node.prev
+            while prev is not None:
+                shortest_path.insert(0, prev.coords)
+                prev = prev.prev
+            self.snake.current_grid = shortest_path.pop(0)
+            print "A* Finished! Found %s complete paths! (Shortest: %s)" % (len(finish_set), len(shortest_path))
+            print "Running the shortest path now"
+            self.quitting = False
+            for grid in shortest_path:
+                if self.quitting is True:
+                    print "Quit called"
+                    break
+                self.snake.moveSnake(grid)
+                Qt.QApplication.processEvents()
+                sleep(float(TICKRATE_MS/float(1000)))
+        else:
+            print "A* Could not find any solutions to the finish starting from %s" % str(self.snake.start_grid)
+
+
         
         
 
 class Snake(object):
     def __init__(self, start_grid, grid_item_states, game_grid, grid_item_tracker, context):
         self.start_grid = start_grid
+        self.finish_grid = context.finish_grid
         self.current_grid = start_grid
         self.game_grid = game_grid
         self.grid_item_tracker = grid_item_tracker
@@ -822,6 +906,8 @@ class uiFunctions(object):
         self.updateSpeed()
         self.lock_controls(True)
         snake_instance = Snake(self.start_grid, self.grid_item_states, self.MW.game_grid, self.grid_item_tracker, self)
+        if self.game_instance_thread is not None and self.game_instance_thread.isAlive():
+            self.game_instance_thread.join()
         self.game_instance_thread = RunInstance(snake_instance, self)
         self.game_instance_thread.start()
         self.grid_locked = True
@@ -832,7 +918,6 @@ class uiFunctions(object):
     
     def stopButtonPressed(self, quiet=False):
         self.game_instance_thread.quitting = True
-        self.game_instance_thread.join()
         self.start_grid = self.game_instance_thread.snake.current_grid
         self.grid_item_tracker[self.game_instance_thread.snake.current_grid] = 3
         self.lock_controls(False)
